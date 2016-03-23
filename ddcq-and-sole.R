@@ -8,8 +8,6 @@
 # series are rather constant, if the rise with time (indicating technological
 # creep) or are dependent on abundance (i.e. SSB or TSB, which indicates ddcq)
 
-# Add a new line here for testing Git.
-
 # (1) Is FPUE of sole constant or does it change with time and/or abundance?----
 
   # check catch composition of sole in STECF landings. Get data at
