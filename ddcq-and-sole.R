@@ -62,6 +62,7 @@
     # created as csv in file 'P:\\Offlineordner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\create-stecf-effort-csv.R'
   effort <- get_stecf_landings_per_rectangle(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\input data\\STECF 2014\\Effort_by_rectangle.csv', nose_only = TRUE, deep = F, fdf = F, format_long = T)
     # calculate effort per metier and year
+  
    [!!!]
   
   # get F per age class from assessment
