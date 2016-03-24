@@ -58,13 +58,25 @@
    
   
 
-
-
-
   # get effort
-  source(file = 'P:\\Offlineordner\\Promotion III -- Technological Creep\\03--Severe stats--JUL2015\\Script\\get Effort.r')
-  effort2 <- get_stecf_landings_per_rectangle()
-
+    # created as csv in file 'P:\\Offlineordner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\create-stecf-effort-csv.R'
+  effort <- get_stecf_landings_per_rectangle(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\input data\\STECF 2014\\Effort_by_rectangle.csv', nose_only = TRUE, deep = F, fdf = F, format_long = T)
+    # calculate effort per metier and year
+   [!!!]
+  
+  # get F per age class from assessment
+  fishing_mortality <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\WGNSSK15-Table 10.3.1. North Sea sole. Harvest (F).csv', sep = ';')
+  names(fishing_mortality) <- c('year', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10')
+  fishing_mortality <- melt(data = fishing_mortality, id.vars = 'year')
+  fishing_mortality$age <- as.integer(as.character(fishing_mortality$variable))
+  fishing_mortality$F_ <- as.numeric(as.character(fishing_mortality$value))
+  fishing_mortality$value <- NULL
+  fishing_mortality$variable <- NULL
+  
+  # [!!!] combine effort and F information and calculate FPUE (or q)
+  
+  
+  
   # Read B and F (total and per age class) from sole assessment (WGNSSK 2015).
 
   sole_total <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\03--Severe stats--JUL2015\\Input\\Stock Assessment Data\\Sole in Subarea IV.csv')
