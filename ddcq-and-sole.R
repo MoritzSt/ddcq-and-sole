@@ -61,9 +61,13 @@
   # get effort
     # created as csv in file 'P:\\Offlineordner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\create-stecf-effort-csv.R'
   effort <- get_stecf_landings_per_rectangle(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\input data\\STECF 2014\\Effort_by_rectangle.csv', nose_only = TRUE, deep = F, fdf = F, format_long = T)
+  effort <- rename(.data = effort, effort = value)
+  effort$year <- as.integer(as.character(effort$year))
     # calculate effort per metier and year
-  
-   [!!!]
+  by_metier <- group_by(.data = effort, country, reg_gear_cod, vessel_length, year)
+  by_metier <- summarise(.data = by_metier,
+                          count = n(),
+                          metier_effort = sum(effort, na.rm = TRUE))  # na.rm = T, as we consider NA in STECF effort data to translate to 'no effort in this rectangle'.
   
   # get F per age class from assessment
   fishing_mortality <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\WGNSSK15-Table 10.3.1. North Sea sole. Harvest (F).csv', sep = ';')
@@ -74,9 +78,40 @@
   fishing_mortality$value <- NULL
   fishing_mortality$variable <- NULL
   
-  # [!!!] combine effort and F information and calculate FPUE (or q)
+  # combine effort and F information and calculate FPUE (or q)
+  fishing_mortality_subset <- fishing_mortality[ fishing_mortality$year >= min(effort$year) ,]
+  Fandf <- merge(fishing_mortality_subset, by_metier, all.x = TRUE, all.y = TRUE)
+    # subset interesting metiers, as indicated by STECF landings analysis above: BT2
+  Fandf <- Fandf[ Fandf$reg_gear_cod == 'BT2',]
+  Fandf$fpue <- Fandf$F_ / Fandf$metier_effort  # calculate FPUE, i.e. q
+  # cleanse data: I want effort to come from at least 5 rectangles per case.
+  Fandf <- Fandf[ Fandf$count > 4, ]
+  # also remove cases of zero effort
+  Fandf <- Fandf[ Fandf$metier_effort > 0, ]
+  Fandf <- Fandf[ !is.na(Fandf$year),]
+  
+  # plot and model FPUE over the years --> Is FPUE ±constant? Are there indications of techn creep?
+  qplot(data = Fandf, x = year, y = fpue, colour = country) + geom_point() + facet_grid(age ~ vessel_length, scales = 'free_y')
+    # make FPUE relative maximum FPUE and plot again
+  FPUEmax <- group_by(.data = Fandf, age, country, vessel_length)
+  FPUEmax <- summarise(.data = FPUEmax,
+                       fpue_max = max(fpue, na.rm = TRUE))
+  FPUEmax <- FPUEmax[ !is.na(FPUEmax$age),]
+  FPUEmax <- rename(.data = FPUEmax, max_fpue = fpue)
+          # plot that maximum FPUE per age  --> btw.: the lower max FPUE, the more the effort is actually related to sole F, i presume.
+          qplot(data = FPUEmax, y = fpue_max, x = age) + geom_point() + facet_wrap(vessel_length ~ country, scales = 'free_y')
+  FPUEmax$year <- NULL
+  Fandf_relative <- merge(Fandf, FPUEmax, all.x = T, all.y = T)
+  Fandf_relative <- mutate(.data = Fandf_relative, fpue_relative = fpue / fpue_max)
+  qplot(data = Fandf_relative, x = year, y = fpue_relative, colour = country, cex = count) + geom_point() + facet_wrap(age ~ vessel_length, scales = 'free_y')
   
   
+  # plot F against effort
+  qplot(data = Fandf_relative, x = metier_effort, y = F_, colour = country) + geom_point() + facet_wrap(age ~ vessel_length, scales = 'free_y')
+    # larger BT2 only
+  qplot(data = Fandf_relative[ Fandf_relative$vessel_length == "O15M",], x = metier_effort, y = F_, colour = country) + geom_point() + facet_grid(age ~ country, scales = 'free')
+  
+  # [!!!] Add biomass info and plot 
   
   # Read B and F (total and per age class) from sole assessment (WGNSSK 2015).
 
