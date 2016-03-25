@@ -104,8 +104,30 @@
   Fandf_relative <- merge(Fandf, FPUEmax, all.x = T, all.y = T)
   Fandf_relative <- mutate(.data = Fandf_relative, fpue_relative = fpue / fpue_max)
   qplot(data = Fandf_relative, x = year, y = fpue_relative, colour = country, cex = count) + geom_point() + facet_wrap(age ~ vessel_length, scales = 'free_y')
-  
-  
+    
+    # statistical modelling: FPUE ~ year
+    correlations <- lapply(split(Fandf, list(Fandf$age, Fandf$country, Fandf$reg_gear_cod, Fandf$vessel_length)), function(X) if(dim(X)[1] >0) { cor.test(y = X$fpue, x = X$year) })
+    # make correlations results a df
+    correlations_df <- c()
+    for(i in seq_along(correlations)) {
+      if(!is.null(correlations[[i]])) {
+      correlations_df <- rbind(correlations_df, c(
+        names(correlations)[i],
+        correlations[[i]]$estimate,
+        correlations[[i]]$p.value
+      ))
+      } }
+    correlations_df <- as.data.frame(correlations_df)
+    correlations_df <- rename(.data = correlations_df, case = V1, p.value = V3)
+    correlations_df$case <- as.character(correlations_df$case)
+    correlations_df$cor <- as.numeric(as.character(correlations_df$cor))
+    correlations_df$p.value <- as.numeric(as.character((correlations_df$p.value)))
+    sig_correlations_df <- correlations_df[ correlations_df$p.value < 0.01,]
+    time_correlations <- correlations_df
+    rm(correlations_df, correlations, sig_correlations_df)
+    # --> of the larger BT2, O15M, most BEL GER NED DEN  FPUE increases sig with time.
+    
+    
   # plot F against effort
   qplot(data = Fandf_relative, x = metier_effort, y = F_, colour = country) + geom_point() + facet_wrap(age ~ vessel_length, scales = 'free_y')
     # larger BT2 only
@@ -118,7 +140,69 @@
   sole_total <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\03--Severe stats--JUL2015\\Input\\Stock Assessment Data\\Sole in Subarea IV.csv')
   names(sole_total) <- tolower(names(sole_total))
   sole_total$year <- as.integer(as.character(sole_total$year))
-
-  sole_F_at_age <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\WGNSSK15-Table 10.3.1. North Sea sole. Harvest (F).csv')
-  sole_weight_at_age <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\WGNSSK15-Table 10.2.5. North Sea sole. Stock weight at age (kg).csv')
-  sole_number_at_age <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\WGNSSK15-Table 10.4.1. North Sea sole. Stock numbers (thousands).csv')
+  sole_total <- sole_total[!sole_total$year == 2015,]
+  sole_total <- sole_total[!is.na(sole_total$year),]
+  
+  sole_weight_at_age <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\WGNSSK15-Table 10.2.5. North Sea sole. Stock weight at age (kg).csv', sep = ';')
+  names(sole_weight_at_age) <- c('year',paste( c(1:10)))
+  sole_weight_at_age <- melt(data = sole_weight_at_age, id.vars = 'year')
+  sole_weight_at_age <- rename(.data = sole_weight_at_age, age = variable, weight_at_age = value)
+  sole_weight_at_age$age <- as.integer(as.character(sole_weight_at_age$age))
+  
+  sole_number_at_age <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\WGNSSK15-Table 10.4.1. North Sea sole. Stock numbers (thousands).csv', sep = ';')
+  names(sole_number_at_age) <- c('year',paste( c(1:10)))
+  sole_number_at_age <- melt(data = sole_number_at_age, id.vars = 'year')
+  sole_number_at_age <- rename(.data = sole_number_at_age, age = variable, number_at_age = value)
+  sole_number_at_age$age <- as.integer(as.character(sole_number_at_age$age))
+  
+  sole_b_at_age <- merge(sole_weight_at_age, sole_number_at_age, all.x = T, all.y = T)  
+  sole_b_at_age <- mutate(.data = sole_b_at_age, b_at_age = weight_at_age * number_at_age)
+  # plot
+  qplot(data = sole_b_at_age, y = b_at_age, x = age) + geom_point() + facet_wrap(~year, scales = 'free_y')
+  qplot(data = sole_b_at_age, y = weight_at_age, x = age) + geom_point() + facet_wrap(~year, scales = 'free_y')
+  qplot(data = sole_b_at_age, y = number_at_age, x = age) + geom_point() + facet_wrap(~year, scales = 'free_y')
+  # --> Numbers at age are very variable. Is that real? [!!!]
+  
+  
+  # add biomass info to FPUE data
+  sole_b_at_age <- sole_b_at_age[sole_b_at_age$year >= min(effort$year),]
+  sole_b_at_age <- sole_b_at_age[sole_b_at_age$year <= max(effort$year),]
+  sole_b_at_age$weight_at_age <- NULL
+  sole_b_at_age$number_at_age <- NULL
+  fpue_bio <- merge(Fandf, sole_b_at_age, all.x = T, all.y = T)
+  fpue_bio_relative <- merge(Fandf_relative, sole_b_at_age, all.x = T, all.y = T)
+  
+  # plot FPUE ~ biomass
+  qplot(data = fpue_bio_relative[fpue_bio_relative$vessel_length == 'O15M',],
+        y = fpue_relative, x = b_at_age) + geom_point() + facet_wrap(age ~ country, scales = 'free')
+  
+  # statistical modelling: FPUE ~ biomass
+  correlations <- lapply(split(fpue_bio, list(fpue_bio$age, fpue_bio$country, fpue_bio$reg_gear_cod, fpue_bio$vessel_length)), function(X) if(dim(X)[1] >0) { cor.test(y = X$fpue, x = X$b_at_age) })
+  # make correlations results a df
+  correlations_df <- c()
+  for(i in seq_along(correlations)) {
+    if(!is.null(correlations[[i]])) {
+      correlations_df <- rbind(correlations_df, c(
+        names(correlations)[i],
+        correlations[[i]]$estimate,
+        correlations[[i]]$p.value
+      ))
+    } }
+  correlations_df <- as.data.frame(correlations_df)
+  correlations_df <- rename(.data = correlations_df, case = V1, p.value = V3)
+  correlations_df$case <- as.character(correlations_df$case)
+  correlations_df$cor <- as.numeric(as.character(correlations_df$cor))
+  correlations_df$p.value <- as.numeric(as.character((correlations_df$p.value)))
+  sig_correlations_df <- correlations_df[ correlations_df$p.value < 0.01,]
+  time_correlations <- correlations_df
+  rm(correlations_df, correlations, sig_correlations_df)
+  
+  
+  # [!!!]
+  # So far: No significant relationship between FPUE and B in sole.
+  # 1) Is that changed by being more specific with the rectangles I get effort from?
+  # 2) Does that change if I use B and FPUE of the whole stock? ddcq would then be
+  #     because the age structure (and related properties) of the stock changes.
+  #   2.b) If so, is maybe FPUE related to some measurable index of age structure?
+  # 3) There is, however, a strong hint towards technological creep. Is that of use?
+  # 4) Repeat the analysis for plaice and cod.
