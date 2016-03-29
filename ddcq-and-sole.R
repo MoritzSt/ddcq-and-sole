@@ -37,7 +37,7 @@
   # plot share of sole in total catch and seek a pattern
   library(ggplot2)
   qplot(data = shares[shares$share > 0.1,], share) + geom_histogram() + facet_wrap(~ reg_gear_cod, scales = 'free')
-  qplot(data = shares[shares$reg_gear_cod == 'BT2',], share) + geom_histogram(binwidth=0.2) + facet_grid( vessel_length ~ country, scales = 'free')  # experiment with binwidth!
+  qplot(data = shares[shares$reg_gear_cod == 'BT2',], share) + geom_histogram(binwidth=0.1) + facet_grid( vessel_length ~ country, scales = 'free')  # experiment with binwidth!
   # --> over 15m appears to be the interesting vessel length,
   #     BEL ENG GER NED (and, surprisingly, SCO) to be the interesting countries
   
@@ -55,6 +55,9 @@
         plot_factor_in_map(data = subdat2, parameter = 'share', ices_rectangle = 'rectangle', visuals = 'colour')
       }
   }
+  
+   # Non-loop non-package version: Map of shares, O15M, all countries, all years
+  
    
   
 
@@ -97,10 +100,8 @@
   FPUEmax <- summarise(.data = FPUEmax,
                        fpue_max = max(fpue, na.rm = TRUE))
   FPUEmax <- FPUEmax[ !is.na(FPUEmax$age),]
-  FPUEmax <- rename(.data = FPUEmax, max_fpue = fpue)
           # plot that maximum FPUE per age  --> btw.: the lower max FPUE, the more the effort is actually related to sole F, i presume.
           qplot(data = FPUEmax, y = fpue_max, x = age) + geom_point() + facet_wrap(vessel_length ~ country, scales = 'free_y')
-  FPUEmax$year <- NULL
   Fandf_relative <- merge(Fandf, FPUEmax, all.x = T, all.y = T)
   Fandf_relative <- mutate(.data = Fandf_relative, fpue_relative = fpue / fpue_max)
   qplot(data = Fandf_relative, x = year, y = fpue_relative, colour = country, cex = count) + geom_point() + facet_wrap(age ~ vessel_length, scales = 'free_y')
@@ -200,10 +201,10 @@
   
   # [!!!]
   # So far: No significant relationship between FPUE and B in sole.
-  # 0) Remove temporal autocorrelation, i.e. potential effect of TC.
   # 1) Is that changed by being more specific with the rectangles I get effort from?
-  # 2) Does that change if I use B and FPUE of the whole stock? ddcq would then be
+  # 2) Remove temporal autocorrelation, i.e. potential effect of TC.
+  # 3) Does that change if I use B and FPUE of the whole stock? ddcq would then be
   #     because the age structure (and related properties) of the stock changes.
-  #   2.b) If so, is maybe FPUE related to some measurable index of age structure?
-  # 3) There is, however, a strong hint towards technological creep. Is that of use?
-  # 4) Repeat the analysis for plaice and cod.
+  #   3.b) If so, is maybe FPUE related to some measurable index of age structure?
+  # 4) There is, however, a strong hint towards technological creep. Is that of use?
+  # 5) Repeat the analysis for plaice and cod.
