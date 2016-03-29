@@ -31,7 +31,7 @@
         #  case <- 'SOL'
         #  value <- 'landings'
   shares <- aggr_share_of(data = landings, id.vars = c('annex', 'reg_area_cod', 'reg_gear_cod', 'specon', 'vessel_length', 'rectangle', 'country', 'year'),
-                value = 'landings', col = 'species', case = 'SOL')
+                value = 'value', col = 'species', case = 'SOL')
   if(max(shares$share, na.rm = TRUE) != 1)  {warnings('Shares calculation failed!')}
 
   # plot share of sole in total catch and seek a pattern
@@ -200,6 +200,7 @@
   
   # [!!!]
   # So far: No significant relationship between FPUE and B in sole.
+  # 0) Remove temporal autocorrelation, i.e. potential effect of TC.
   # 1) Is that changed by being more specific with the rectangles I get effort from?
   # 2) Does that change if I use B and FPUE of the whole stock? ddcq would then be
   #     because the age structure (and related properties) of the stock changes.
