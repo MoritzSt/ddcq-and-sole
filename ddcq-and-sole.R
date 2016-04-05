@@ -8,6 +8,13 @@
 # series are rather constant, if the rise with time (indicating technological
 # creep) or are dependent on abundance (i.e. SSB or TSB, which indicates ddcq)
 
+
+# (0) define baselines of analysis ----------------------------------------
+
+  # Do you want to include effort data of dutch beam trawl prior 2003 from WGSAM05?
+  prior2003 <- TRUE
+  working_directory <- 'D:\\workfolder\\TI-2016\\ddcq\\ddcq-and-sole-master\\ddcq-and-sole-master'
+
 # (1) Is FPUE of sole constant or does it change with time and/or abundance?----
 
   # check catch composition of sole in STECF landings. Get data at
@@ -15,7 +22,8 @@
       # use snose package to load and convert STECF file to long format
   library(reshape2)
   library(sNoSeR)
-  file_location_stecf_landings <- 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\input data\\STECF 2014\\Landings_by_ICES_rectangle.csv'
+  file_location_stecf_landings <- paste(working_directory, 'input', 'STECF landings per rectangle.csv', sep = '\\')
+    # it was: 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\input data\\STECF 2014\\Landings_by_ICES_rectangle.csv'
   landings <- get_stecf_landings_per_rectangle(file = file_location_stecf_landings, nose_only = T, deep = F, fdf = F, format_long = T)
   landings_backup <- landings
   landings$year <- as.integer(as.character(landings$year))
@@ -63,7 +71,8 @@
 
   # get effort
     # created as csv in file 'P:\\Offlineordner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\create-stecf-effort-csv.R'
-  effort <- get_stecf_landings_per_rectangle(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\input data\\STECF 2014\\Effort_by_rectangle.csv', nose_only = TRUE, deep = F, fdf = F, format_long = T)
+  effort <- get_stecf_landings_per_rectangle(file = paste(working_directory, 'input', 'STECF Effort_by_rectangle.csv', sep = '\\'))
+ # It was 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\input data\\STECF 2014\\Effort_by_rectangle.csv', nose_only = TRUE, deep = F, fdf = F, format_long = T)
   effort <- rename(.data = effort, effort = value)
   effort$year <- as.integer(as.character(effort$year))
     # calculate effort per metier and year
@@ -72,8 +81,16 @@
                           count = n(),
                           metier_effort = sum(effort, na.rm = TRUE))  # na.rm = T, as we consider NA in STECF effort data to translate to 'no effort in this rectangle'.
   
+  # get effort prior 2003 from WGNSSK 2005, Table 7.3.5., North Sea sole: effort and CPUE series
+  if(prior2003 == TRUE) {
+    older_effort <- read.csv()
+  }
+  
   # get F per age class from assessment
-  fishing_mortality <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\WGNSSK15-Table 10.3.1. North Sea sole. Harvest (F).csv', sep = ';')
+  fish_mort_path <- paste(working_directory, 'input\\WGNSSK15-Table 10.3.1. North Sea sole. Harvest (F).csv', sep = '\\')
+  fishing_mortality <- read.csv(file = fish_mort_path, sep = ';')
+  rm(fish_mort_path)
+    # It was: 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\WGNSSK15-Table 10.3.1. North Sea sole. Harvest (F).csv', sep = ';')
   names(fishing_mortality) <- c('year', '1', '2', '3', '4', '5', '6', '7', '8', '9', '10')
   fishing_mortality <- melt(data = fishing_mortality, id.vars = 'year')
   fishing_mortality$age <- as.integer(as.character(fishing_mortality$variable))
