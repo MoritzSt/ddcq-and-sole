@@ -26,8 +26,7 @@
     # it was: 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\input data\\STECF 2014\\Landings_by_ICES_rectangle.csv'
   landings <- get_stecf_landings_per_rectangle(file = file_location_stecf_landings, nose_only = T, deep = F, fdf = F, format_long = T)
   landings_backup <- landings
-  landings$year <- as.integer(as.character(landings$year))
-  
+
     # calculate contribution of sole to total catch per fleet, rectangle and year
   library(dplyr)
   library(magrittr)
