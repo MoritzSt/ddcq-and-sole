@@ -6,7 +6,8 @@
 # It starts by establishing a time series of FPUE by dividing assessment F by
 # efforts of various fleets from STECF. It seeks to establish if these time
 # series are rather constant, if the rise with time (indicating technological
-# creep) or are dependent on abundance (i.e. SSB or TSB, which indicates ddcq)
+# creep) or are dependent on abundance (i.e. SSB or TSB, which indicates ddcq).
+# ♥
 
 
 # (0) define baselines of analysis ----------------------------------------
@@ -82,9 +83,15 @@
                           count = n(),
                           metier_effort = sum(effort, na.rm = TRUE))  # na.rm = T, as we consider NA in STECF effort data to translate to 'no effort in this rectangle'.
   
-  # get effort prior 2003 from WGNSSK 2005, Table 7.3.5., North Sea sole: effort and CPUE series
+  # get NLD BT effort prior 2003 from WGNSSK 2005, Table 7.3.5., North Sea sole: effort and CPUE series
   if(prior2003 == TRUE) {
-    older_effort <- read.csv()
+    older_effort <- read.csv(stringsAsFactors = FALSE, sep = ';',
+      file = paste(working_directory, 'input', 'WGNSSK05--NL BT effort.csv', sep = '\\'))
+    names(older_effort) <- tolower(names(older_effort))
+      names(older_effort) <- gsub(x = names(older_effort),
+                          pattern = "\\.",
+                          replacement = "_")
+      older_effort <- older_effort[!is.na(older_effort$nl_bt_effort),]
   }
   
   # get F per age class from assessment
@@ -100,7 +107,10 @@
   fishing_mortality$variable <- NULL
   
   # combine effort and F information and calculate FPUE (or q)
-  fishing_mortality_subset <- fishing_mortality[ fishing_mortality$year >= min(effort$year) ,]
+      # remove F where no effort data is available
+      years_with_effort <- unique(effort$year)
+      fishing_mortality_subset <- fishing_mortality[ is.element(fishing_mortality$year, years_with_effort) ,]
+      rm(years_with_effort)
   Fandf <- merge(fishing_mortality_subset, by_metier, all.x = TRUE, all.y = TRUE)
     # subset interesting metiers, as indicated by STECF landings analysis above: BT2
   Fandf <- Fandf[ Fandf$reg_gear_cod == 'BT2',]
@@ -110,7 +120,7 @@
   # also remove cases of zero effort
   Fandf <- Fandf[ Fandf$metier_effort > 0, ]
   Fandf <- Fandf[ !is.na(Fandf$year),]
-  
+
   # plot and model FPUE over the years --> Is FPUE ±constant? Are there indications of techn creep?
   qplot(data = Fandf, x = year, y = fpue, colour = country) + geom_point() + facet_grid(age ~ vessel_length, scales = 'free_y')
     # make FPUE relative maximum FPUE and plot again
@@ -151,11 +161,62 @@
   qplot(data = Fandf_relative, x = metier_effort, y = F_, colour = country) + geom_point() + facet_wrap(age ~ vessel_length, scales = 'free_y')
     # larger BT2 only
   qplot(data = Fandf_relative[ Fandf_relative$vessel_length == "O15M",], x = metier_effort, y = F_, colour = country) + geom_point() + facet_grid(age ~ country, scales = 'free')
+
   
-  # [!!!] Add biomass info and plot 
+# (1.2) With additional NLD BT effort prior 2003 --------------------------
+if(prior2003 == TRUE) {
+  
+  # remove F data for years without effort
+  years_with_effort2 <- unique(c(unique(older_effort$year), unique(effort$year)))
+  fishing_mortality_subset2 <- fishing_mortality[is.element(fishing_mortality$year, years_with_effort2),]
+  rm(years_with_effort2)
+  
+  # use effort of NL, BT2, vessel > 15m from STECF and combine with WGSAM05 effort
+  # Note: NLD effort til 2003 from WGSAM05 is in 1000000 HP day
+  newer_effort <- by_metier[by_metier$country == 'NED' &
+                              by_metier$vessel_length == 'O15M'&
+                              by_metier$reg_gear_cod == 'BT2',
+                            c(which(names(by_metier) == 'year'),
+                              which(names(by_metier) == 'metier_effort'))]
+  older_effort$effort_rel_2003 <- older_effort$nl_bt_effort / older_effort$nl_bt_effort[older_effort$year == 2003]
+  older_effort$nl_bt_effort <- NULL
+  newer_effort$effort_rel_2003 <- newer_effort$metier_effort / newer_effort$metier_effort[newer_effort$year == 2003]
+  newer_effort$metier_effort <- NULL
+  long_effort <- as.data.frame(merge(older_effort, newer_effort, all.x = T, all.y = T))
+  long_ff <- merge(long_effort, fishing_mortality_subset2, all_x = T, all.y = T)
+
+  # calculate FPUE, i.e. q
+  long_ff$fpue <- long_ff$F_ / long_ff$effort_rel_2003
+  range(long_ff$fpue)
+  qplot(data = long_ff, x = year, y = fpue) + geom_point() + facet_wrap( ~ age, scales = 'free_y')
+  
+  # statistical modelling with effort between 1978 and 2013: FPUE ~ year
+    correlations <- lapply(split(long_ff, list(long_ff$age)), function(X) if(dim(X)[1] >0) { cor.test(y = X$fpue, x = X$year) })
+    # make correlations results a df
+    correlations_df <- c()
+    for(i in seq_along(correlations)) {
+      if(!is.null(correlations[[i]])) {
+      correlations_df <- rbind(correlations_df, c(
+        names(correlations)[i],
+        correlations[[i]]$estimate,
+        correlations[[i]]$p.value
+      ))
+      } }
+    correlations_df <- as.data.frame(correlations_df)
+    correlations_df <- rename(.data = correlations_df, case = V1, p.value = V3)
+    correlations_df$case <- as.character(correlations_df$case)
+    correlations_df$cor <- as.numeric(as.character(correlations_df$cor))
+    correlations_df$p.value <- as.numeric(as.character((correlations_df$p.value)))
+    sig_correlations_df <- correlations_df[ correlations_df$p.value < 0.01,]
+    time_correlations_long <- correlations_df
+    rm(correlations_df, correlations, sig_correlations_df)
+  
+}  # end of altered procedure for prior2003 == TRUE.
+  
+
+# # (1.3) Add biomass info from assessment --------------------------------
   
   # Read B and F (total and per age class) from sole assessment (WGNSSK 2015).
-
   sole_total <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\03--Severe stats--JUL2015\\Input\\Stock Assessment Data\\Sole in Subarea IV.csv')
   names(sole_total) <- tolower(names(sole_total))
   sole_total$year <- as.integer(as.character(sole_total$year))
@@ -174,7 +235,8 @@
   sole_number_at_age <- rename(.data = sole_number_at_age, age = variable, number_at_age = value)
   sole_number_at_age$age <- as.integer(as.character(sole_number_at_age$age))
   
-  sole_b_at_age <- merge(sole_weight_at_age, sole_number_at_age, all.x = T, all.y = T)  
+  sole_b_at_age <- merge(sole_weight_at_age, sole_number_at_age, all.x = T, all.y = T) 
+  rm(sole_number_at_age, sole_weight_at_age)
   sole_b_at_age <- mutate(.data = sole_b_at_age, b_at_age = weight_at_age * number_at_age)
   # plot
   qplot(data = sole_b_at_age, y = b_at_age, x = age) + geom_point() + facet_wrap(~year, scales = 'free_y')
@@ -184,10 +246,11 @@
   
   
   # add biomass info to FPUE data
-  sole_b_at_age <- sole_b_at_age[sole_b_at_age$year >= min(effort$year),]
-  sole_b_at_age <- sole_b_at_age[sole_b_at_age$year <= max(effort$year),]
   sole_b_at_age$weight_at_age <- NULL
   sole_b_at_age$number_at_age <- NULL
+  sole_b_at_age_backup <- sole_b_at_age
+  sole_b_at_age <- sole_b_at_age[sole_b_at_age$year >= min(effort$year),]
+  sole_b_at_age <- sole_b_at_age[sole_b_at_age$year <= max(effort$year),]
   fpue_bio <- merge(Fandf, sole_b_at_age, all.x = T, all.y = T)
   fpue_bio_relative <- merge(Fandf_relative, sole_b_at_age, all.x = T, all.y = T)
   
@@ -217,6 +280,7 @@
   rm(correlations_df, correlations, sig_correlations_df)
   
   
+  
   # [!!!]
   # So far: No significant relationship between FPUE and B in sole.
   # 1) Is that changed by being more specific with the rectangles I get effort from?
@@ -226,3 +290,32 @@
   #   3.b) If so, is maybe FPUE related to some measurable index of age structure?
   # 4) There is, however, a strong hint towards technological creep. Is that of use?
   # 5) Repeat the analysis for plaice and cod.
+  
+  
+# (1.4) FPUE vs biomass for longer NLD BT effort series -------------------
+  long_fpue_bio <- merge(long_ff, sole_b_at_age_backup, all.x = T, all.y = F)
+  # plot FPUE against biomass for all ages
+  qplot(data = long_fpue_bio, x = b_at_age, y = fpue, main = 'FPUE vs B at age 1978-2013') + geom_point() + facet_wrap( ~ age, scales = 'free')
+  qplot(data = long_fpue_bio[long_fpue_bio$year<2003,], x = b_at_age, y = fpue, main = 'FPUE vs B at age 1978-2003') + geom_point() + facet_wrap( ~ age, scales = 'free')
+  # statistical modells
+  correlations <- lapply(split(long_fpue_bio, list(long_fpue_bio$age)), function(X) if(dim(X)[1] >0) { cor.test(y = X$fpue, x = X$b_at_age) })
+        # ...consider  >  models <- lapply(split(long_fpue_bio, list(long_fpue_bio$age)), function(X) if(dim(X)[1] >0) { lm(formula = X$fpue ~ X$b_at_age) })
+  # make correlations results a df
+  correlations_df <- c()
+  for(i in seq_along(correlations)) {
+    if(!is.null(correlations[[i]])) {
+      correlations_df <- rbind(correlations_df, c(
+        names(correlations)[i],
+        correlations[[i]]$estimate,
+        correlations[[i]]$p.value
+      ))
+    } }
+  correlations_df <- as.data.frame(correlations_df)
+  correlations_df <- rename(.data = correlations_df, case = V1, p.value = V3)
+  correlations_df$case <- as.character(correlations_df$case)
+  correlations_df$cor <- as.numeric(as.character(correlations_df$cor))
+  correlations_df$p.value <- as.numeric(as.character((correlations_df$p.value)))
+  sig_correlations_df <- correlations_df[ correlations_df$p.value < 0.01,]
+  long_fpue_bio_correlations <- correlations_df
+  rm(correlations_df, correlations, sig_correlations_df)
+  
