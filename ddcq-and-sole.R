@@ -137,23 +137,27 @@
     # statistical modelling: FPUE ~ year
     correlations <- lapply(split(Fandf, list(Fandf$age, Fandf$country, Fandf$reg_gear_cod, Fandf$vessel_length)), function(X) if(dim(X)[1] >0) { cor.test(y = X$fpue, x = X$year) })
     # make correlations results a df
-    correlations_df <- c()
-    for(i in seq_along(correlations)) {
-      if(!is.null(correlations[[i]])) {
-      correlations_df <- rbind(correlations_df, c(
-        names(correlations)[i],
-        correlations[[i]]$estimate,
-        correlations[[i]]$p.value
-      ))
-      } }
-    correlations_df <- as.data.frame(correlations_df)
-    correlations_df <- rename(.data = correlations_df, case = V1, p.value = V3)
-    correlations_df$case <- as.character(correlations_df$case)
-    correlations_df$cor <- as.numeric(as.character(correlations_df$cor))
-    correlations_df$p.value <- as.numeric(as.character((correlations_df$p.value)))
-    sig_correlations_df <- correlations_df[ correlations_df$p.value < 0.01,]
-    time_correlations <- correlations_df
-    rm(correlations_df, correlations, sig_correlations_df)
+    # with a function to turn correlations stored in a list to a data frame
+        cor_results_as_df <- function(correlations) { 
+          correlations_df <- c()
+          for(i in seq_along(correlations)) {
+            if(!is.null(correlations[[i]])) {
+            correlations_df <- rbind(correlations_df, c(
+              names(correlations)[i],
+              correlations[[i]]$estimate,
+              correlations[[i]]$p.value
+            ))
+            } }
+          correlations_df <- as.data.frame(correlations_df)
+          correlations_df <- rename(.data = correlations_df, case = V1, p.value = V3)
+          correlations_df$case <- as.character(correlations_df$case)
+          correlations_df$cor <- as.numeric(as.character(correlations_df$cor))
+          correlations_df$p.value <- as.numeric(as.character((correlations_df$p.value)))
+          sig_correlations_df <- correlations_df[ correlations_df$p.value < 0.01,]
+          correlations_df  # output: correlations_df
+        }
+    time_correlations <- cor_results_as_df(correlations = correlations)
+
     # --> of the larger BT2, O15M, most BEL GER NED DEN  FPUE increases sig with time.
     
     
@@ -319,3 +323,28 @@ if(prior2003 == TRUE) {
   long_fpue_bio_correlations <- correlations_df
   rm(correlations_df, correlations, sig_correlations_df)
   
+  
+# (1.5)   Develop multiple regression model: FPUE ~ year + biomass_at_age --------
+    pairs(long_fpue_bio)
+  
+  
+  # ? Are explanatory variables confound, i.e. is B_at_age linearly correlated with time?
+  correlations_expl_vars <- lapply(split(long_fpue_bio, list(long_fpue_bio$age)), function(X) if(dim(X)[1] >0) { cor.test(y = X$year, x = X$b_at_age) })
+  correlations_expl_vars <- cor_results_as_df(correlations = correlations_expl_vars)
+  # ! --> Yes, they are, for ages 8, 9, 10.
+  qplot(data = long_fpue_bio, x = year, y = b_at_age) + geom_point() + facet_wrap( ~ age, scales = 'free_y')
+
+  
+  # ? In simple multiple linear regressions, check combined effect of time and B
+  models1 <- lapply(split(long_fpue_bio, list(long_fpue_bio$age)), function(X) if(dim(X)[1] >0) { lm(formula = X$fpue ~ X$b_at_age + X$year) })
+  # ! --> No single case where B effect is significant. Output see 'output' folder.
+  
+  # ? First exploratory use of glm
+  models2 <- lapply(split(long_fpue_bio, list(long_fpue_bio$age)), function(X) if(dim(X)[1] >0) { glm(formula = X$fpue ~ X$b_at_age + X$year) })  
+  
+   # ... explore results by using 
+    # > summary(models[[i]])
+    # > plot(models[[i]])
+    # ...where i is the age, e.g. > summary(models[[2]])  # for age 2.
+  
+  # ? First exploratory use of gam
