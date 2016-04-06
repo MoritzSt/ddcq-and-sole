@@ -13,7 +13,8 @@
 
   # Do you want to include effort data of dutch beam trawl prior 2003 from WGSAM05?
   prior2003 <- TRUE
-  working_directory <- 'D:\\workfolder\\TI-2016\\ddcq\\ddcq-and-sole-master\\ddcq-and-sole-master'
+  # working_directory <- 'D:\\workfolder\\TI-2016\\ddcq\\ddcq-and-sole-master\\ddcq-and-sole-master'
+   working_directory <- 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole'
 
 # (1) Is FPUE of sole constant or does it change with time and/or abundance?----
 
@@ -22,7 +23,7 @@
       # use snose package to load and convert STECF file to long format
   library(reshape2)
   library(sNoSeR)
-  file_location_stecf_landings <- paste(working_directory, 'input', 'STECF landings per rectangle.csv', sep = '\\')
+  file_location_stecf_landings <- paste(working_directory, 'input', 'STECF 2014', 'Landings_by_ICES_rectangle.csv', sep = '\\')
     # it was: 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\input data\\STECF 2014\\Landings_by_ICES_rectangle.csv'
   landings <- get_stecf_landings_per_rectangle(file = file_location_stecf_landings, nose_only = T, deep = F, fdf = F, format_long = T)
   landings_backup <- landings
@@ -70,7 +71,8 @@
 
   # get effort
     # created as csv in file 'P:\\Offlineordner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\create-stecf-effort-csv.R'
-  effort <- get_stecf_landings_per_rectangle(file = paste(working_directory, 'input', 'STECF Effort_by_rectangle.csv', sep = '\\'))
+  effort <- get_stecf_landings_per_rectangle(file = paste(working_directory, 'input', 'STECF 2014', 'Effort_by_rectangle.csv', sep = '\\'),
+                                             nose_only = TRUE, deep = F, fdf = F, format_long = T)
  # It was 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\input data\\STECF 2014\\Effort_by_rectangle.csv', nose_only = TRUE, deep = F, fdf = F, format_long = T)
   effort <- rename(.data = effort, effort = value)
   effort$year <- as.integer(as.character(effort$year))
