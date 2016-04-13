@@ -348,3 +348,62 @@ if(prior2003 == TRUE) {
     # ...where i is the age, e.g. > summary(models[[2]])  # for age 2.
   
   # ? First exploratory use of gam
+
+  
+  
+  
+# (1.6) SSB Stats: FPUE ~ biomass + year ----------------------------------
+  
+  dat <- merge(sole_total, long_effort, all.x = F, all.y = F)
+  dat <- select(.data = dat, year, ssb, mean.f, effort_rel_2003)
+  dat$fpue <- dat$mean.f / dat$effort_rel_2003
+  x11()
+  pairs(dat)
+  library(mgcv)
+  qplot(data = dat, fpue) + geom_histogram()  # check distribution of response var
+  dev.off()
+    # --> looks like gaussian is OK.
+  
+  
+  # Test for temporal autocorrelation in fpue
+  x11()
+  acf(dat)
+  dev.off()
+    # --> Autocorrelation up to a six years lag in fpue.
+  
+
+  # Test family
+  model.gaussian <- gam(data = dat, formula = fpue ~ s(ssb, k = -1, fx = F) + year,
+               family = gaussian(link = 'log') )
+  
+  model.gamma <- gam(data = dat, formula = fpue ~ s(ssb, k = -1, fx = F) + year,
+                        family = Gamma(link = 'log') )
+  
+  # --> > family = Gamma  # is better than gaussian because Resids. vs.
+  # linear pred. has u-shaped curve.
+  # --> Both have bias in Resids. vs. linear pred. towards positive values,
+  #     not equal on both sides of y = 0.
+  # --> R2 adjusted, however, is higher for gaussian.
+  
+  
+  
+  
+  
+  # test adding error term in mixed model (gamm)
+  
+  model.gamma <- gamm(data = dat, formula = fpue ~ s(ssb) + year,
+                         family = Gamma(link = 'log'),
+                         correlation = corARMA(form = ~ year, p = 1))  # p = 0   doesn't work.
+   # --> Unclear what happens here... [???]
+  
+  > plot(model.gamma$gam)
+  > gam.check(model.gamma$gam)
+  > plot(model.gamma$lme)
+  > gam.check(model.gamma$lme)
+  x11()
+  summary(model)
+  par(mfrow = c(1, 2))
+  plot(model, all.terms = TRUE)
+  gam.check(model)
+  qplot(data = dat, x = year, y = ssb)
+  
