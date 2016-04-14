@@ -403,6 +403,7 @@ if(prior2003 == TRUE) {
   # testing both time and ssb WITHOUT autocorrelation control:
     model0 <- gamm(data = dat, formula = fpue ~ s(ssb) + year,
                       family = Gamma(link = 'log'))
+  gam.check(model0$gam)
   summary(model0$gam)
   plot(model0$gam)
 
@@ -464,7 +465,51 @@ if(prior2003 == TRUE) {
                  correlation = corARMA(form = ~ year, p = 1))
   gam.check(model1$gam)
     # --> Bizarre patterns of residuals !!! .
-    #     Looks better with 'gaussian', but still not good.
-  plot(model1$gam)  # --> predictions look ok
-  AIC(model0$lme, model1$lme)  # --> Yes, AIC is lower WITH it.
+    #     Is it better with family = gaussian?
+  model1_gaussian <- gamm(data = dat, formula = mean.f ~ s(ssb) + s(effort_rel_2003) + year,
+                 family = gaussian(link = 'log'),
+                 correlation = corARMA(form = ~ year, p = 1))
+  gam.check(model1_gaussian$gam)  
+  AIC(model1_gaussian$lme, model1$lme)
+    #     Looks better with 'gaussian', but still not good. Better than FPUE ~ ... , though.
+  plot(model1_gaussian$gam)  # --> predictions look ok
+  AIC(model0$lme, model1_gaussian$lme)  # --> Yes, AIC is lower WITH it.
+  summary(model1_gaussian$gam)  # --> Only effort is significant. Year effect is negative!
   
+  # Make effort effect linear, not smoothed.
+  model2 <- gamm(data = dat, formula = mean.f ~ s(ssb) + effort_rel_2003 + year,
+                 family = gaussian(link = 'log'),
+                 correlation = corARMA(form = ~ year, p = 1))
+  gam.check(model2$gam)
+    # --> No nice residuals. Quite similar to gaussian with smoothed effort.
+  AIC(model1_gaussian$lme, model2$lme)  # --> No big difference AIC-wise either.
+  summary(model2$gam)  # --> Still only effort sig., year effect still negative.
+  
+  # Test linear effect of ssb.
+  model2b <- gamm(data = dat, formula = mean.f ~ ssb + s(effort_rel_2003) + year,
+                 family = gaussian(link = 'log'),
+                 correlation = corARMA(form = ~ year, p = 1))
+  gam.check(model2b$gam)
+  # --> No nice residuals.
+  AIC(model1_gaussian$lme, model2b$lme)  # --> Sort of better.
+  summary(model2$gam)  # --> Only effort sig., year effect still negative.
+  
+
+  # Kick insignificant terms.
+  # Kick year.
+  model3 <- gamm(data = dat, formula = mean.f ~ s(ssb) + effort_rel_2003,
+                 family = gaussian(link = 'log'),
+                 correlation = corARMA(form = ~ year, p = 1))
+  gam.check(model3$gam)
+    # --> Barely better, but there could now be a trend in resid.s vs predictor.
+  AIC(model2$lme, model3$lme)  # --> No big difference AIC-wise.
+  summary(model3$gam)  # --> Still only effort sig..
+  
+  # Kick ssb.
+  model4 <- gamm(data = dat, formula = mean.f ~ s(effort_rel_2003),
+                 family = gaussian(link = 'log'),
+                 correlation = corARMA(form = ~ year, p = 1))
+  gam.check(model4$gam)
+  # --> Barely better, but there could now be a trend in resid.s vs predictor.
+  AIC(model4$lme, model3$lme)  # --> AIC-wise better.
+  summary(model4$gam)
