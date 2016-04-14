@@ -357,6 +357,8 @@ if(prior2003 == TRUE) {
   dat <- merge(sole_total, long_effort, all.x = F, all.y = F)
   dat <- select(.data = dat, year, ssb, mean.f, effort_rel_2003)
   dat$fpue <- dat$mean.f / dat$effort_rel_2003
+  dat$ssb <- as.numeric(as.character(dat$ssb))
+  dat$year <- as.numeric(as.character(dat$year))  # This might be a critical point.
   x11()
   pairs(dat)
   library(mgcv)
@@ -379,6 +381,9 @@ if(prior2003 == TRUE) {
   model.gamma <- gam(data = dat, formula = fpue ~ s(ssb, k = -1, fx = F) + year,
                         family = Gamma(link = 'log') )
   
+  model.gamma <- gam(data = dat, formula = fpue ~ s(ssb, k = -1, fx = F) + s(year),
+                     family = Gamma(link = 'log') )
+  
   # --> > family = Gamma  # is better than gaussian because Resids. vs.
   # linear pred. has u-shaped curve.
   # --> Both have bias in Resids. vs. linear pred. towards positive values,
@@ -388,22 +393,78 @@ if(prior2003 == TRUE) {
   
   
   
+  # test adding error term in mixed model (gamm):
+  # including an autoregressive term to account for temporal autocorrelation
   
-  # test adding error term in mixed model (gamm)
+  # without correction for autocorrelation and testing ssb effect ONLY:
+  model00 <- gamm(data = dat, formula = fpue ~ s(ssb),
+                       family = Gamma(link = 'log'))
   
-  model.gamma <- gamm(data = dat, formula = fpue ~ s(ssb) + year,
+  # testing both time and ssb WITHOUT autocorrelation control:
+    model0 <- gamm(data = dat, formula = fpue ~ s(ssb) + year,
+                      family = Gamma(link = 'log'))
+  summary(model0$gam)
+  plot(model0$gam)
+
+  # including an autoregressive term
+  model1 <- gamm(data = dat, formula = fpue ~ s(ssb) + year,
                          family = Gamma(link = 'log'),
                          correlation = corARMA(form = ~ year, p = 1))  # p = 0   doesn't work.
-   # --> Unclear what happens here... [???]
   
-  > plot(model.gamma$gam)
-  > gam.check(model.gamma$gam)
-  > plot(model.gamma$lme)
-  > gam.check(model.gamma$lme)
-  x11()
-  summary(model)
-  par(mfrow = c(1, 2))
-  plot(model, all.terms = TRUE)
-  gam.check(model)
-  qplot(data = dat, x = year, y = ssb)
+   # does that improve the model?
+  AIC(model0$lme, model1$lme)
+   # --> Yes, AIC much better.
+   # But are the residuals ok?
+  gam.check(model1$gam)
+   # --> Nope, the residuals are u-shaped :-/ .
+   #      So there is something else happening, and I suspect that's for the
+   #      relationship between effort and FPUE. FPUE decreases with effort,
+   #      which I assume is the case because a double effort would not lead
+   #      to a doubled F.
+  plot(dat$fpue ~ dat$effort_rel_2003)
+  lm(dat$mean.f ~ dat$effort_rel_2003)  # 18% rise in F per unit effort.
+  
+   # including a smoother on 'year' would fix the problem...
+  model1x <- gamm(data = dat, formula = fpue ~ s(ssb) + s(year, k = 5, fx = T),
+                       family = Gamma(link = 'log'),
+                       correlation = corARMA(form = ~ year, p = 1))
+  gam.check(model1x$gam)
+   # ... but is explanatory ±nonsense.
+  
+  
+# (2) What if I modelled F ~ f + ssb + year? ------------------------------
+  
+  # check distribution of response var
+  range(dat$mean.f)  # between 1 and 0.
+  qplot(data = dat, mean.f) + geom_histogram()
+  # --> [???] What's that distribution?
+
+  # Test response variable for temporal autocorrelation
+  acf(dat$mean.f)
+  # --> Massive...
+  
+  # Use GAM (to compare with simplest GAMM)
+  model00 <- gam(data = dat, formula = mean.f ~ s(ssb) + s(effort_rel_2003) + year,
+                          family = Gamma(link = 'log') )
+  gam.check(model0)
+  plot(model0)
+  summary(model0)
+  
+  # The simplest GAMM with no autoregressive term
+  model0 <- gamm(data = dat, formula = mean.f ~ s(ssb) + s(effort_rel_2003) + year,
+                     family = Gamma(link = 'log'))
+  # --> summary(model0$gam)  looks quite like  summary(model00),
+  #     so a GAMM with no autoregressive term is a good comparison to the GAM, but:
+  AIC(model00)  # is much lower than:
+  AIC(model0$lme)
+  
+  # Does inclusion of autoregressive term to account for temporal autocorrelation help?
+  model1 <- gamm(data = dat, formula = mean.f ~ s(ssb) + s(effort_rel_2003) + year,
+                 family = Gamma(link = 'log'),
+                 correlation = corARMA(form = ~ year, p = 1))
+  gam.check(model1$gam)
+    # --> Bizarre patterns of residuals !!! .
+    #     Looks better with 'gaussian', but still not good.
+  plot(model1$gam)  # --> predictions look ok
+  AIC(model0$lme, model1$lme)  # --> Yes, AIC is lower WITH it.
   
