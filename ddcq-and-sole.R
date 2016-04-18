@@ -418,7 +418,35 @@ if(prior2003 == TRUE) {
    # But are the residuals ok?
   gam.check(model1$gam)
    # --> Nope, the residuals are u-shaped :-/ .
-   #      So there is something else happening, and I suspect that's for the
+  
+   # That might be because the gam.check resids vs lin pred plot shows raw residuals
+   # taking into account the fixed effects terms only.
+   # To get residuals that include the autoregressive term, we need normalized residuals:
+   # https://stats.stackexchange.com/questions/80823/do-autocorrelated-residual-patterns-remain-even-in-models-with-appropriate-corre/80825#80825
+  x11()
+  layout(matrix(1:2))
+  acf(resid(model1$lme))
+  acf(resid(model1$lme, type = "normalized"))
+   # --> No more autocorrelation in normalized residuals.
+  layout(1)
+  dev.off()
+   # Plot normalized residuals vs linear predictor
+  x11()
+  layout(matrix(1:2))
+  model_gam_part <- model1$gam
+  plot(napredict(model_gam_part$na.action, model_gam_part$linear.predictors),
+       resid(model1$lme, type = 'normalized'),
+             main = "Normalized resids vs. linear pred.", 
+             xlab = "linear predictor", ylab = "residuals")
+  # ...and plot histogram of normalized residuals
+  hist(resid(model1$lme, type = 'normalized'), xlab = "Normalized residuals",
+       main = "Histogram of normalized residuals")
+  
+  
+   
+   #      If u-shaped pattern in residuals is NOT because of the gam.check
+   #      plot showing 
+   #      there is something else happening, and I suspect that's for the
    #      relationship between effort and FPUE. FPUE decreases with effort,
    #      which I assume is the case because a double effort would not lead
    #      to a doubled F.
