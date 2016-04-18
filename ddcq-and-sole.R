@@ -188,7 +188,9 @@ if(prior2003 == TRUE) {
   newer_effort$metier_effort <- NULL
   long_effort <- as.data.frame(merge(older_effort, newer_effort, all.x = T, all.y = T))
   long_ff <- merge(long_effort, fishing_mortality_subset2, all_x = T, all.y = T)
-
+  
+  # same for 
+  
   # calculate FPUE, i.e. q
   long_ff$fpue <- long_ff$F_ / long_ff$effort_rel_2003
   range(long_ff$fpue)
@@ -247,9 +249,16 @@ if(prior2003 == TRUE) {
   qplot(data = sole_b_at_age, y = weight_at_age, x = age) + geom_point() + facet_wrap(~year, scales = 'free_y')
   qplot(data = sole_b_at_age, y = number_at_age, x = age) + geom_point() + facet_wrap(~year, scales = 'free_y')
   # --> Numbers at age are very variable. Is that real? [!!!]
+        
+        # Add plaice ssb
+        plaice_total <- read.csv2(stringsAsFactors = F, file = paste(working_directory, 'input', 'Plaice Subarea IV.csv', sep = '\\'))
+        names(plaice_total) <- tolower(names(plaice_total))
+        plaice_total$year <- as.integer(as.character(plaice_total$year))
+        plaice_total <- plaice_total[!plaice_total$year == 2015,]
+        plaice_total <- plaice_total[!is.na(plaice_total$year),]
+        
   
-  
-  # add biomass info to FPUE data
+  # add sole biomass info to FPUE data
   sole_b_at_age$weight_at_age <- NULL
   sole_b_at_age$number_at_age <- NULL
   sole_b_at_age_backup <- sole_b_at_age
@@ -461,6 +470,12 @@ if(prior2003 == TRUE) {
     # --> looks sort of better than family = Gamma, as response vs fitted values
     #     starts closer to origin.
     
+    # time not as predictor.
+    model3 <- gamm(data = dat, formula = fpue ~ s(ssb, fx = F),
+                   family = gaussian(link = 'log'),
+                   correlation = corARMA(form = ~ year, p = 1))
+    model4 <- gam(data = dat, formula = fpue ~ s(ssb) + year,
+                  family =Gamma(link = 'log'))
     
   
 # (1.7) If u-shaped resid pattern has another meaning than fixed model part... --------
