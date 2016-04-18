@@ -430,20 +430,41 @@ if(prior2003 == TRUE) {
    # --> No more autocorrelation in normalized residuals.
   layout(1)
   dev.off()
-   # Plot normalized residuals vs linear predictor
-  x11()
-  layout(matrix(1:2))
-  model_gam_part <- model1$gam
-  plot(napredict(model_gam_part$na.action, model_gam_part$linear.predictors),
-       resid(model1$lme, type = 'normalized'),
-             main = "Normalized resids vs. linear pred.", 
-             xlab = "linear predictor", ylab = "residuals")
-  # ...and plot histogram of normalized residuals
-  hist(resid(model1$lme, type = 'normalized'), xlab = "Normalized residuals",
-       main = "Histogram of normalized residuals")
+   # Plot gam.check with normalized residuals
+    gam.check_normalized <- function(model) {  # A function to draw gam.check with norm. res.
+    x11()
+    par(mfrow = c(2,2))
+     # QQ Plot
+    qq.gam(model$gam, rep = 0, level = 0.9, type = 'deviance', rl.col = 2, 
+           rep.col = "gray80", cex = 3)
+    # NOrmalized residuals vs linear predictor
+    model_gam_part <- model$gam
+    plot(napredict(model_gam_part$na.action, model_gam_part$linear.predictors),
+         resid(model$lme, type = 'normalized'),
+         main = "Normalized resids vs. linear pred.", 
+         xlab = "linear predictor", ylab = "residuals")
+    # histogram of normalized residuals
+    hist(resid(model$lme, type = 'normalized'), xlab = "Normalized residuals",
+         main = "Histogram of normalized residuals")
+    # Observed vs fitted values
+    plot(fitted(model_gam_part), napredict(model_gam_part$na.action, model_gam_part$y), xlab = "Fitted Values", 
+         ylab = "Response", main = "Response vs. Fitted Values")
+    }  # End of gam.check_normalized function.
+    
+    
+# (1.6.2) Optimize GAM with autoregressive term ---------------------------
+    model2 <- gamm(data = dat, formula = fpue ~ s(ssb) + year,
+                   family = gaussian(link = 'log'),
+                   correlation = corARMA(form = ~ year, p = 1))  
+    # Check normalized model residuals
+    gam.check_normalized(model = model2)
+    # --> looks sort of better than family = Gamma, as response vs fitted values
+    #     starts closer to origin.
+    
+    
   
+# (1.7) If u-shaped resid pattern has another meaning that fixed m --------
   
-   
    #      If u-shaped pattern in residuals is NOT because of the gam.check
    #      plot showing 
    #      there is something else happening, and I suspect that's for the
@@ -467,6 +488,7 @@ if(prior2003 == TRUE) {
   range(dat$mean.f)  # between 1 and 0.
   qplot(data = dat, mean.f) + geom_histogram()
   # --> [???] What's that distribution?
+
 
   # Test response variable for temporal autocorrelation
   acf(dat$mean.f)
