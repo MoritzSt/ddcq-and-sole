@@ -221,7 +221,7 @@ if(prior2003 == TRUE) {
 # # (1.3) Add biomass info from assessment --------------------------------
   
   # Read B and F (total and per age class) from sole assessment (WGNSSK 2015).
-  sole_total <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\03--Severe stats--JUL2015\\Input\\Stock Assessment Data\\Sole in Subarea IV.csv')
+  sole_total <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\Sole in Subarea IV.csv')
   names(sole_total) <- tolower(names(sole_total))
   sole_total$year <- as.integer(as.character(sole_total$year))
   sole_total <- sole_total[!sole_total$year == 2015,]
@@ -463,7 +463,7 @@ if(prior2003 == TRUE) {
     
     
   
-# (1.7) If u-shaped resid pattern has another meaning that fixed m --------
+# (1.7) If u-shaped resid pattern has another meaning than fixed model part... --------
   
    #      If u-shaped pattern in residuals is NOT because of the gam.check
    #      plot showing 
@@ -482,7 +482,13 @@ if(prior2003 == TRUE) {
    # ... but is explanatory ±nonsense.
   
   
-# (2) What if I modelled F ~ f + ssb + year? ------------------------------
+
+# (2) Same for plaice ---------------------------------------------------------------------
+
+  
+
+  
+# (3) What if I modelled F ~ f + ssb + year? ------------------------------
   
   # check distribution of response var
   range(dat$mean.f)  # between 1 and 0.
