@@ -94,6 +94,17 @@
       older_effort <- older_effort[!is.na(older_effort$nl_bt_effort),]
   }
   
+  # get BEL BT effort prior 2003 from WGNSSK 2005, Table 7.3.5., North Sea sole: effort and CPUE series
+  if(prior2003 == TRUE) {
+    older_effort_bel <- read.csv(stringsAsFactors = FALSE, sep = ';',
+                             file = paste(working_directory, 'input', 'WGNSSK05--BEL BT effort.csv', sep = '\\'))
+    names(older_effort_bel) <- tolower(names(older_effort_bel))
+    names(older_effort_bel) <- gsub(x = names(older_effort_bel),
+                                pattern = "\\.",
+                                replacement = "_")
+    older_effort_bel <- older_effort_bel[!is.na(older_effort_bel$bel_bt_effort),]
+  }  
+  
   # get F per age class from assessment
   fish_mort_path <- paste(working_directory, 'input\\WGNSSK15-Table 10.3.1. North Sea sole. Harvest (F).csv', sep = '\\')
   fishing_mortality <- read.csv(file = fish_mort_path, sep = ';')
@@ -189,9 +200,20 @@ if(prior2003 == TRUE) {
   long_effort <- as.data.frame(merge(older_effort, newer_effort, all.x = T, all.y = T))
   long_ff <- merge(long_effort, fishing_mortality_subset2, all_x = T, all.y = T)
   
-  # same for 
+  # same for BEL, BT2, vessel > 15m combined with Belgium data from WGNSSK05 
+  newer_effort_bel <- by_metier[by_metier$country == 'BEL' &
+                                  by_metier$vessel_length == 'O15M'&
+                                  by_metier$reg_gear_cod == 'BT2',
+                                c(which(names(by_metier) == 'year'),
+                                  which(names(by_metier) == 'metier_effort'))]
+  older_effort_bel$effort_rel_2003 <- older_effort_bel$bel_bt_effort / older_effort_bel$bel_bt_effort[older_effort_bel$year == 2003]
+  older_effort_bel$bel_bt_effort <- NULL
+  newer_effort_bel$effort_rel_2003 <- newer_effort_bel$metier_effort / newer_effort_bel$metier_effort[newer_effort_bel$year == 2003]
+  newer_effort_bel$metier_effort <- NULL
+  long_effort_bel <- as.data.frame(merge(older_effort_bel, newer_effort_bel, all.x = T, all.y = T))
+
   
-  # calculate FPUE, i.e. q
+  # For NLD, calculate FPUE, i.e. q
   long_ff$fpue <- long_ff$F_ / long_ff$effort_rel_2003
   range(long_ff$fpue)
   qplot(data = long_ff, x = year, y = fpue) + geom_point() + facet_wrap( ~ age, scales = 'free_y')
@@ -361,11 +383,14 @@ if(prior2003 == TRUE) {
   
   
   
-# (1.6) SSB Stats: FPUE ~ biomass + year ----------------------------------
+# (1.6) Sole SSB Stats: FPUE ~ biomass + year ----------------------------------
   
-  dat <- merge(sole_total, long_effort, all.x = F, all.y = F)
-  dat <- select(.data = dat, year, ssb, mean.f, effort_rel_2003)
+  dat <- merge(sole_total, long_effort, all.x = T, all.y = F)
+  long_effort_bel <- rename(long_effort_bel, effort_bel_rel_2003 = effort_rel_2003)
+  dat <- merge(dat, long_effort_bel, all.x = F, all.y = F)
+  dat <- select(.data = dat, year, ssb, mean.f, effort_rel_2003, effort_bel_rel_2003)
   dat$fpue <- dat$mean.f / dat$effort_rel_2003
+  dat$fpue_bel <- dat$mean.f / dat$effort_bel_rel_2003
   dat$ssb <- as.numeric(as.character(dat$ssb))
   dat$year <- as.numeric(as.character(dat$year))  # This might be a critical point.
   x11()
@@ -498,12 +523,14 @@ if(prior2003 == TRUE) {
   
   
 
-# (2) Same for plaice ---------------------------------------------------------------------
+# (3) Same for sole vs BEL BT ---------------------------------------------------------------------
 
+  model1 <- gam(data = dat, fpue_bel ~ s(ssb) + year,
+                family = Gamma(link = 'log'))
   
 
   
-# (3) What if I modelled F ~ f + ssb + year? ------------------------------
+# (4) What if I modelled F ~ f + ssb + year? ------------------------------
   
   # check distribution of response var
   range(dat$mean.f)  # between 1 and 0.
