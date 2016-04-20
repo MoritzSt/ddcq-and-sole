@@ -383,7 +383,7 @@ if(prior2003 == TRUE) {
   
   
   
-# (1.6) Sole SSB Stats: FPUE ~ biomass + year ----------------------------------
+# (1.6.1) Sole SSB Stats: Netherlands FPUE ~ biomass + year ----------------------------------
   
   dat <- merge(sole_total, long_effort, all.x = T, all.y = F)
   long_effort_bel <- rename(long_effort_bel, effort_bel_rel_2003 = effort_rel_2003)
@@ -415,15 +415,40 @@ if(prior2003 == TRUE) {
   model.gamma <- gam(data = dat, formula = fpue ~ s(ssb, k = -1, fx = F) + year,
                         family = Gamma(link = 'log') )
   
-  model.gamma <- gam(data = dat, formula = fpue ~ s(ssb, k = -1, fx = F) + s(year),
-                     family = Gamma(link = 'log') )
+    # --> > family = Gamma  # is better than gaussian because Resids. vs.
+    # linear pred. has u-shaped curve.
+    # --> Both have bias in Resids. vs. linear pred. towards positive values,
+    #     not equal on both sides of y = 0.
+    # --> R2 adjusted, however, is higher for gaussian.
+    AIC(model.gaussian, model.gamma)
+    # --> Gamma is better AIC-wise.
+    # --> Automatic k' of 9 seems OK for the model, k-index is 0.963
+    # --> Final model.
+
   
-  # --> > family = Gamma  # is better than gaussian because Resids. vs.
-  # linear pred. has u-shaped curve.
-  # --> Both have bias in Resids. vs. linear pred. towards positive values,
-  #     not equal on both sides of y = 0.
-  # --> R2 adjusted, however, is higher for gaussian.
-  
+    
+
+# (1.6.2) Sole SSB Stats: Belgium FPUE ~ biomass + year --------------------------
+
+    # Test for temporal autocorrelation in fpue
+    x11()
+    acf(dat$fpue_bel)
+    dev.off()
+    # --> Autocorrelation up to a four years lag in fpue.
+    
+    # Test family
+    model.gaussian <- gam(data = dat, formula = fpue_bel ~ s(ssb, k = -1, fx = F) + year,
+                          family = gaussian(link = 'log') )
+    
+    model.gamma <- gam(data = dat, formula = fpue_bel ~ s(ssb, k = -1, fx = F) + year,
+                       family = Gamma(link = 'log') )
+    AIC(model.gaussian, model.gamma)
+    # --> resids vs linear pred more evenly distributed for Gamma.
+    # --> histogram of resids less biased with Gamma.
+    # --> lower AIC with Gamma
+    summary(model.gamma)
+    # --> Both terms sig.!
+    
 
 # (3) mechanistic model ---------------------------------------------------------------------
   # Inspect if the mechanistic model (formula) to account for both
