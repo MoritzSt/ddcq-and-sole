@@ -424,104 +424,6 @@ if(prior2003 == TRUE) {
   #     not equal on both sides of y = 0.
   # --> R2 adjusted, however, is higher for gaussian.
   
-  
-  
-  
-  # test adding error term in mixed model (gamm):
-  # including an autoregressive term to account for temporal autocorrelation
-  
-  # without correction for autocorrelation and testing ssb effect ONLY:
-  model00 <- gamm(data = dat, formula = fpue ~ s(ssb),
-                       family = Gamma(link = 'log'))
-  
-  # testing both time and ssb WITHOUT autocorrelation control:
-    model0 <- gamm(data = dat, formula = fpue ~ s(ssb) + year,
-                      family = Gamma(link = 'log'))
-  gam.check(model0$gam)
-  summary(model0$gam)
-  plot(model0$gam)
-
-  # including an autoregressive term
-  model1 <- gamm(data = dat, formula = fpue ~ s(ssb) + year,
-                         family = Gamma(link = 'log'),
-                         correlation = corARMA(form = ~ year, p = 1))  # p = 0   doesn't work.
-  
-   # does that improve the model?
-  AIC(model0$lme, model1$lme)
-   # --> Yes, AIC much better.
-   # But are the residuals ok?
-  gam.check(model1$gam)
-   # --> Nope, the residuals are u-shaped :-/ .
-  
-   # That might be because the gam.check resids vs lin pred plot shows raw residuals
-   # taking into account the fixed effects terms only.
-   # To get residuals that include the autoregressive term, we need normalized residuals:
-   # https://stats.stackexchange.com/questions/80823/do-autocorrelated-residual-patterns-remain-even-in-models-with-appropriate-corre/80825#80825
-  x11()
-  layout(matrix(1:2))
-  acf(resid(model1$lme))
-  acf(resid(model1$lme, type = "normalized"))
-   # --> No more autocorrelation in normalized residuals.
-  layout(1)
-  dev.off()
-   # Plot gam.check with normalized residuals
-    gam.check_normalized <- function(model) {  # A function to draw gam.check with norm. res.
-    x11()
-    par(mfrow = c(2,2))
-     # QQ Plot
-    qq.gam(model$gam, rep = 0, level = 0.9, type = 'deviance', rl.col = 2, 
-           rep.col = "gray80", cex = 3)
-    # NOrmalized residuals vs linear predictor
-    model_gam_part <- model$gam
-    plot(napredict(model_gam_part$na.action, model_gam_part$linear.predictors),
-         resid(model$lme, type = 'normalized'),
-         main = "Normalized resids vs. linear pred.", 
-         xlab = "linear predictor", ylab = "residuals")
-    # histogram of normalized residuals
-    hist(resid(model$lme, type = 'normalized'), xlab = "Normalized residuals",
-         main = "Histogram of normalized residuals")
-    # Observed vs fitted values
-    plot(fitted(model_gam_part), napredict(model_gam_part$na.action, model_gam_part$y), xlab = "Fitted Values", 
-         ylab = "Response", main = "Response vs. Fitted Values")
-    }  # End of gam.check_normalized function.
-    
-    
-# (1.6.2) Optimize GAM with autoregressive term ---------------------------
-    model2 <- gamm(data = dat, formula = fpue ~ s(ssb) + year,
-                   family = gaussian(link = 'log'),
-                   correlation = corARMA(form = ~ year, p = 1))  
-    # Check normalized model residuals
-    gam.check_normalized(model = model2)
-    # --> looks sort of better than family = Gamma, as response vs fitted values
-    #     starts closer to origin.
-    
-    # time not as predictor.
-    model3 <- gamm(data = dat, formula = fpue ~ s(ssb, fx = F),
-                   family = gaussian(link = 'log'),
-                   correlation = corARMA(form = ~ year, p = 1))
-    model4 <- gam(data = dat, formula = fpue ~ s(ssb) + year,
-                  family =Gamma(link = 'log'))
-    
-  
-# (1.7) If u-shaped resid pattern has another meaning than fixed model part... --------
-  
-   #      If u-shaped pattern in residuals is NOT because of the gam.check
-   #      plot showing 
-   #      there is something else happening, and I suspect that's for the
-   #      relationship between effort and FPUE. FPUE decreases with effort,
-   #      which I assume is the case because a double effort would not lead
-   #      to a doubled F.
-  plot(dat$fpue ~ dat$effort_rel_2003)
-  lm(dat$mean.f ~ dat$effort_rel_2003)  # 18% rise in F per unit effort.
-  
-   # including a smoother on 'year' would fix the problem...
-  model1x <- gamm(data = dat, formula = fpue ~ s(ssb) + s(year, k = 5, fx = T),
-                       family = Gamma(link = 'log'),
-                       correlation = corARMA(form = ~ year, p = 1))
-  gam.check(model1x$gam)
-   # ... but is explanatory ±nonsense.
-  
-  
 
 # (3) Same for sole vs BEL BT ---------------------------------------------------------------------
 
@@ -567,7 +469,7 @@ if(prior2003 == TRUE) {
   
   # with TC
   nls.model1 <- nls(mean.f ~ (1 + creep * year) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
-                    data = dat, start = c(qr0 = 10, creep = 0.1))
+                    data = dat, start = c(qr0 = 1, creep = 0))
   # without TC
   nls.model2 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
                    data = dat, start = c(qr0 = 1))
