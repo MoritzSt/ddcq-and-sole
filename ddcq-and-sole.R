@@ -528,9 +528,62 @@ if(prior2003 == TRUE) {
   model1 <- gam(data = dat, fpue_bel ~ s(ssb) + year,
                 family = Gamma(link = 'log'))
   
-
   
-# (4) What if I modelled F ~ f + ssb + year? ------------------------------
+
+# (4) mechanistic model ---------------------------------------------------------------------
+  # Inspect if the mechanistic model (formula) to account for both
+  # technological creep (TC) and density-dependent changes in catchability
+  # (ddqc) is a linear equation:
+  
+  # The model when no TC or ddq is asumed is 
+  # Ftp = ft * q  ,
+  # where Ftp is partial F caused by the respective fleet inspected at time t, ft is relative effort,
+  # and q is catchability (assumed constant over time). This assumes a linear relationship between 
+  # effort and catch (and F alike) as derived from Schaefer 1957 and used in most empirical stock assessments.
+  
+  # Inclusion of TC in this model is
+  # Ftp = (1 + creep * t)  * ft * q,  where creep is annual average rate of increase in fishing power through
+  # technological creep and t the time past start year of analysis in years.
+  
+  # The model to account for ddq is 
+  # Ft = ft * QRo / [1 + (QRo - 1) * Bt / Bo] ,
+  # where QR0  =  qmax / q0   , and ft is relative fishing effort, where f0 = Fp0, i.e. efforts are sclead so base q0 = 1,
+  # where Fp0 is partial F caused by the fleet at t=0).
+  # See also EwE help file, 'density-dependent changes in catchability.
+  
+  # Combining TC and ddq in a model results in
+  # Ft = (1 + creep * t) * ft * QR0 / [1 + (QR0 -1) * Bt/B0]
+  
+  
+  # fit maximum model: including TC and ddcq:
+  # Ft = (1 + creep * t) * ft * QR0 / [1 + (QR0 -1) * Bt/B0]
+  
+  # fit non-linear least square models -----------------------------------------------------------------
+  # Ft = ft QRo / [1 + (QRo - 1) Bt / Bo] ;   
+  # where Ft is Catch/B at point t in time, and QR0 is qmax/q1991, and q is catchability.
+  
+  # create scaled effort f = F0 (efforts scaled so base q0=1; by scaling effort of fleet relative F at t0, i.e. 1991)
+  dat$f_scaled <- dat$effort_rel_2003 * dat$effort_rel_2003[dat$year == 1991]  # scale effort to F1991
+  
+  # with TC
+  nls.model1 <- nls(mean.f ~ (1 + creep * year) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
+                    data = dat, start = c(qr0 = 10, creep = 0.1))
+  # without TC
+  nls.model2 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
+                   data = dat, start = c(qr0 = 1))
+  # plot obs vs pred
+  qr0 <- 0.50815
+  creep <- 0
+  dat$pred_f <- c((1 + creep * dat$year) * dat$f_scaled * qr0 /  (1 + (qr0 - 1) * 
+                          dat$ssb / dat$ssb[dat$year == 1978]))
+  plot(dat$pred_f ~ dat$mean.f,
+       main = paste0('R² = ', round(digits = 3, cor.test(dat$pred_f, dat$mean.f, method = 'pearson')$estimate ^2))  )
+  abline(a = 0, b = 1, col = 'red')
+  # which model is better?
+  AIC(nls.model1, nls.model2)
+ 
+  
+# (5) What if I modelled F ~ f + ssb + year? ------------------------------
   
   # check distribution of response var
   range(dat$mean.f)  # between 1 and 0.
