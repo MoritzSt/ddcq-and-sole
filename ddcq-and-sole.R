@@ -446,6 +446,7 @@ if(prior2003 == TRUE) {
     # --> resids vs linear pred more evenly distributed for Gamma.
     # --> histogram of resids less biased with Gamma.
     # --> lower AIC with Gamma
+    # --> k' OK for Gamma modell, with k-index > 1
     summary(model.gamma)
     # --> Both terms sig.!
     
