@@ -425,14 +425,7 @@ if(prior2003 == TRUE) {
   # --> R2 adjusted, however, is higher for gaussian.
   
 
-# (3) Same for sole vs BEL BT ---------------------------------------------------------------------
-
-  model1 <- gam(data = dat, fpue_bel ~ s(ssb) + year,
-                family = Gamma(link = 'log'))
-  
-  
-
-# (4) mechanistic model ---------------------------------------------------------------------
+# (3) mechanistic model ---------------------------------------------------------------------
   # Inspect if the mechanistic model (formula) to account for both
   # technological creep (TC) and density-dependent changes in catchability
   # (ddqc) is a linear equation:
@@ -459,9 +452,6 @@ if(prior2003 == TRUE) {
   
   # fit maximum model: including TC and ddcq:
   # Ft = (1 + creep * t) * ft * QR0 / [1 + (QR0 -1) * Bt/B0]
-  
-  # fit non-linear least square models -----------------------------------------------------------------
-  # Ft = ft QRo / [1 + (QRo - 1) Bt / Bo] ;   
   # where Ft is Catch/B at point t in time, and QR0 is qmax/q1991, and q is catchability.
   
   # create scaled effort f = F0 (efforts scaled so base q0=1; by scaling effort of fleet relative F at t0, i.e. 1991)
@@ -469,13 +459,19 @@ if(prior2003 == TRUE) {
   
   # with TC
   nls.model1 <- nls(mean.f ~ (1 + creep * year) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
-                    data = dat, start = c(qr0 = 1, creep = 0))
+                    data = dat, start = c(qr0 = 1, creep = 0.1))
+  # use log transformation
+  nls.model2 <- nls(log(mean.f) ~ log((1 + creep * year) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991])),
+                    data = dat[dat$year > 1977,], start = c(qr0 = 2, creep = 2),
+                    trace = TRUE)
+                    
   # without TC
-  nls.model2 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
+  # Ft = ft QRo / [1 + (QRo - 1) Bt / Bo] ;
+  nls.model3 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
                    data = dat, start = c(qr0 = 1))
   # plot obs vs pred
-  qr0 <- 0.50815
-  creep <- 0
+  qr0 <- 1
+  creep <- 0.1
   dat$pred_f <- c((1 + creep * dat$year) * dat$f_scaled * qr0 /  (1 + (qr0 - 1) * 
                           dat$ssb / dat$ssb[dat$year == 1978]))
   plot(dat$pred_f ~ dat$mean.f,
@@ -484,6 +480,14 @@ if(prior2003 == TRUE) {
   # which model is better?
   AIC(nls.model1, nls.model2)
  
+  
+# (4) Same for sole vs BEL BT ---------------------------------------------------------------------
+  
+  model1 <- gam(data = dat, fpue_bel ~ s(ssb) + year,
+                family = Gamma(link = 'log'))
+  
+  
+  
   
 # (5) What if I modelled F ~ f + ssb + year? ------------------------------
   
