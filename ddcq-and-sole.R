@@ -632,17 +632,66 @@ if(prior2003 == TRUE) {
   plaice2$mean.f <- as.numeric(as.character(plaice2$mean.f))
   plaice <- merge(plaice, plaice2, all.x = F, all.y = F)
   rm(plaice2)
-  plaice$fpue_NLD <- plaice$mean.f / plaice$effort_rel_2003
-  plaice$fpue_BEL <- plaice$mean.f / plaice$effort_bel_rel_2003
+  plaice$fpue_nld <- plaice$mean.f / plaice$effort_rel_2003
+  plaice$fpue_bel <- plaice$mean.f / plaice$effort_bel_rel_2003
   
   # data checks
   acf(plaice[plaice$year > 1977,])  # --> temporal autocorrelation in ALL variables
+    # cross correlation
+  cor(plaice, use = 'na.or.complete')
+  cor.test(plaice$fpue_nld, plaice$year, use = 'na.or.complete')  # sig
+  cor.test(plaice$fpue_nld, plaice$ssb, use = 'na.or.complete')  # sig
   
-  acf(plaice$fpue_bel, na.action = na.omit)  # --> temporal autocorrelation til year 4
-  # cross correlation
-  cross_corr <- select(.plaicea = plaice, year, ssb, effort_bel_rel_2003, fpue_bel)
-  cor(cross_corr)
-  cor.test(plaice$fpue_bel, plaice$year)  # sig cor
-  cor.test(plaice$ssb, plaice$year)  # non sig
-  cor.test(plaice$fpue_bel, plaice$ssb)  # sig cor [!!!]
+  cor.test(plaice$fpue_bel, plaice$year, use = 'na.or.complete')  # sig
+  cor.test(plaice$fpue_bel, plaice$ssb, use = 'na.or.complete')  # sig
+  
+  cor.test(plaice$ssb, plaice$year, use = 'na.or.complete', method = 'spearman')  # evtl sig
+ 
+  
+# (6.1) GAM for PLE vs NLD  ----------------------------------------------
+  
+  # test family
+  qplot(data = plaice, fpue_nld) + geom_histogram()  # Gamma, if anything
+  model1 <- gam(data = plaice, fpue_nld ~ s(ssb) + year,
+                family = Gamma(link = 'log'))
+  model2 <- gam(data = plaice, fpue_nld ~ s(ssb) + year,
+                family = gaussian(link = 'log'))
+  
+  gam.check(model1)
+  gam.check(model2)
+  # --> For Gamma, points in QQ plot are closer to line and
+  #   > resid.s histogram is not skewed (while it is for gaussian).
+  AIC(model1, model2)
+  # --> AIC slightly lower for Gamma
+  # --> k' of 9 is fairly ok, k-index is almost 1.
+  plot(model1)
+  summary(model1)
+  # --> all terms sig in Gamma model.
+  # --> Flat line in log scale, descending, 
+  
+  
+  
+  
+# (6.2) GAM for PLE vs BEL  -------------------------------------------------------
+  
+  # test family
+  qplot(data = plaice, fpue_bel) + geom_histogram()  # Gamma, if anything
+  model1 <- gam(data = plaice, fpue_bel ~ s(ssb) + year,
+                family = Gamma(link = 'log'))
+  model2 <- gam(data = plaice, fpue_bel ~ s(ssb) + year,
+                family = gaussian(link = 'log'))
+  
+  gam.check(model1)
+  gam.check(model2)
+  # --> For Gamma, points in QQ plot are closer to line and
+  #   > resids vs lin predictor not biased towards positive values (as gaussian is)
+  AIC(model1, model2)
+  # --> AIC way lower for Gamma
+  # --> k' of 9 is ok, k-index > 1 for both families.
+  plot(model1)
+  summary(model1)
+  # --> all terms sig in Gamma model.
+  # --> Flat line in log scale, descending, 
+  
+  
   
