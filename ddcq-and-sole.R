@@ -687,11 +687,47 @@ if(prior2003 == TRUE) {
   #   > resids vs lin predictor not biased towards positive values (as gaussian is)
   AIC(model1, model2)
   # --> AIC way lower for Gamma
-  # --> k' of 9 is ok, k-index > 1 for both families.
+  # --> k' of 9 is ok, k-index > 1 for both.
+  plot(model1)
+  summary(model1)
+  # --> all terms sig in Gamma model.
+  # --> Flat line in log scale, descending,   
+  # test family
+  qplot(data = plaice, fpue_nld) + geom_histogram()  # Gamma, if anything
+  model1 <- gam(data = plaice, fpue_nld ~ s(ssb) + year,
+                family = Gamma(link = 'log'))
+  model2 <- gam(data = plaice, fpue_nld ~ s(ssb) + year,
+                family = gaussian(link = 'log'))
+  
+  gam.check(model1)
+  gam.check(model2)
+  # --> For Gamma, points in QQ plot are closer to line and
+  #   > resid.s histogram is not skewed (while it is for gaussian).
+  AIC(model1, model2)
+  # --> AIC way lower for Gamma
+  # --> k' of 9 is fairly ok, k-index is almost 1.
   plot(model1)
   summary(model1)
   # --> all terms sig in Gamma model.
   # --> Flat line in log scale, descending, 
   
   
+  # test family
+  qplot(data = plaice, fpue_nld) + geom_histogram()  # Gamma, if anything
+  model1 <- gam(data = plaice, fpue_nld ~ s(ssb) + year,
+                family = Gamma(link = 'log'))
+  model2 <- gam(data = plaice, fpue_nld ~ s(ssb) + year,
+                family = gaussian(link = 'log'))
   
+  gam.check(model1)
+  gam.check(model2)
+  # --> For Gamma, points in QQ plot are closer to line and
+  #   > resid.s histogram is not skewed (while it is for gaussian).
+  AIC(model1, model2)
+  # --> AIC way lower for Gamma
+  # --> k' of 9 is fairly ok, k-index is almost 1.
+  plot(model1)
+  summary(model1)
+  # --> all terms sig in Gamma model.
+  # --> Flat line in log scale, descending, 
+ 
