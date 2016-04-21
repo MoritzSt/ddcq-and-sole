@@ -454,7 +454,7 @@ if(prior2003 == TRUE) {
     # --> Both terms sig.!
     
 
-# (3) mechanistic model ---------------------------------------------------------------------
+# (3.1) Sole vs NED: mechanistic model ---------------------------------------------------------------------
   # Inspect if the mechanistic model (formula) to account for both
   # technological creep (TC) and density-dependent changes in catchability
   # (ddqc) is a linear equation:
@@ -486,7 +486,7 @@ if(prior2003 == TRUE) {
 
   # Create relative fishing efforts ft, where fo = Fo (efforts scaled so base qo = 1).
     
-  # create scaled effort f = F0 (efforts scaled so base q0=1; by scaling effort of fleet relative F at t0, i.e. 1991)
+  # for NLD, create scaled effort f = F0 (efforts scaled so base q0=1; by scaling effort of fleet relative F at t0, i.e. 1991)
   dat$f_scaled <- dat$mean.f[dat$year == 1991] * (dat$effort_rel_2003 / dat$effort_rel_2003[dat$year == 1991])  # scale effort to F1991
   
   # with TC
@@ -494,7 +494,7 @@ if(prior2003 == TRUE) {
                     data = dat, start = c(qr0 = 2, creep = 0.1))
   # use log transformation
   nls.model2 <- nls(log(mean.f) ~ log((1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991])),
-                    data = dat[dat$year > 1977,], start = c(qr0 = 2, creep = 2),
+                    data = dat, start = c(qr0 = 2, creep = 2),
                     trace = TRUE)
   # without TC: Ft = ft QRo / [1 + (QRo - 1) Bt / Bo]
   # Ft = ft QRo / [1 + (QRo - 1) Bt / Bo] ;
@@ -538,9 +538,38 @@ if(prior2003 == TRUE) {
   # --> all terms sig in Gamma model.
   # --> curve with local max, no straight line as for NED,
   #   > but can be forced flat with low k.
+
+  
+# (4.1) Sole vs BEL: mechanistic model  ----------------------------------
+  
+  # for BEL, create scaled effort f = F0 (efforts scaled so base q0=1; by scaling effort of fleet relative F at t0, i.e. 1991)
+  dat$f_scaled <- dat$mean.f[dat$year == 1991] * (dat$effort_bel_rel_2003 / dat$effort_bel_rel_2003[dat$year == 1991])  # scale effort to F1991
+  
+  # with TC
+  nls.model1 <- nls(mean.f ~ (1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
+                    data = dat, start = c(qr0 = 2, creep = 0.1))
+                    # use log transformation
+                    nls.model2 <- nls(log(mean.f) ~ log((1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991])),
+                                      data = dat, start = c(qr0 = 2, creep = 2),
+                                      trace = TRUE)
+  # without TC: Ft = ft QRo / [1 + (QRo - 1) Bt / Bo]
+  # Ft = ft QRo / [1 + (QRo - 1) Bt / Bo] ;
+  nls.model3 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
+                    data = dat, start = c(qr0 = 2))
+  # plot obs vs pred
+  qr0 <- 6.592
+  creep <- 0
+  dat$pred_f <- c((1 + creep * (dat$year - min(dat$year[!is.na(dat$f_scaled)])) ) * dat$f_scaled * qr0 /  (1 + (qr0 - 1) * 
+                                                                                                             dat$ssb / dat$ssb[dat$year == 1991]))
+  plot(dat$pred_f ~ dat$mean.f,
+       main = paste0('R² = ', round(digits = 3, cor.test(dat$pred_f, dat$mean.f, method = 'pearson')$estimate ^2))  )
+  abline(a = 0, b = 1, col = 'red')
+  # which model is better?
+  AIC(nls.model1, nls.model3)
   
   
-# (5) What if I modelled F ~ f + ssb + year? ------------------------------
+  
+# (5) What if I GAM-modelled F ~ f + ssb + year? ------------------------------
   
   # check distribution of response var
   range(dat$mean.f)  # between 1 and 0.
