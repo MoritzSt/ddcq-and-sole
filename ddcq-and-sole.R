@@ -683,7 +683,7 @@ if(prior2003 == TRUE) {
 # (6.1) GAM for PLE vs NLD  ----------------------------------------------
   
   # test family
-  qplot(data = plaice, fpue_nld) + geom_histogram()  # Gamma, if anything
+  qplot(data = plaice, fpue_nld) + geom_histogram()  # More likely Gamma
   model1 <- gam(data = plaice, fpue_nld ~ s(ssb) + year,
                 family = Gamma(link = 'log'))
   model2 <- gam(data = plaice, fpue_nld ~ s(ssb) + year,
@@ -691,21 +691,23 @@ if(prior2003 == TRUE) {
   
   gam.check(model1)
   gam.check(model2)
-  # --> For Gamma, points in QQ plot are closer to line and
-  #   > resid.s histogram is not skewed (while it is for gaussian).
+  # --> qq plots slightly better for gaussian,
+  #   > resids vs linear better for Gamma
   AIC(model1, model2)
   # --> AIC slightly lower for Gamma
-  # --> k' of 9 is fairly ok, k-index is almost 1.
+  # --> k' of 9 is good, k-index is > 1 for both families.
   plot(model1)
   summary(model1)
-  # --> all terms sig in Gamma model.
-  # --> Flat line in log scale, descending, 
+  # --> All terms sig in Gamma model.
+  # --> [!!!] Both models show descending q with ssb at low ssb,
+  #   > but rising q at high ssb [!!!]
+  # --> Both models say ssb is insignificant [!!!] while year is.
   
   
 # (6.2) GAM for PLE vs BEL  -------------------------------------------------------
   
   # test family
-  qplot(data = plaice, fpue_bel) + geom_histogram()  # Gamma, if anything
+  qplot(data = plaice, fpue_bel) + geom_histogram()  # Could be anything from visuals
   model1 <- gam(data = plaice, fpue_bel ~ s(ssb) + year,
                 family = Gamma(link = 'log'))
   model2 <- gam(data = plaice, fpue_bel ~ s(ssb) + year,
@@ -713,54 +715,14 @@ if(prior2003 == TRUE) {
   
   gam.check(model1)
   gam.check(model2)
-  # --> For Gamma, points in QQ plot are closer to line and
-  #   > resids vs lin predictor not biased towards positive values (as gaussian is)
+  # --> qq plot and resids vs linear better for gaussian
   AIC(model1, model2)
-  # --> AIC way lower for Gamma
+  # --> AIC alike
   # --> k' of 9 is ok, k-index > 1 for both.
-  plot(model1)
-  summary(model1)
-  # --> all terms sig in Gamma model.
-  # --> Flat line in log scale, descending,   
-  # test family
-  qplot(data = plaice, fpue_nld) + geom_histogram()  # Gamma, if anything
-  model1 <- gam(data = plaice, fpue_nld ~ s(ssb) + year,
-                family = Gamma(link = 'log'))
-  model2 <- gam(data = plaice, fpue_nld ~ s(ssb) + year,
-                family = gaussian(link = 'log'))
-  
-  gam.check(model1)
-  gam.check(model2)
-  # --> For Gamma, points in QQ plot are closer to line and
-  #   > resid.s histogram is not skewed (while it is for gaussian).
-  AIC(model1, model2)
-  # --> AIC way lower for Gamma
-  # --> k' of 9 is fairly ok, k-index is almost 1.
-  plot(model1)
-  summary(model1)
-  # --> all terms sig in Gamma model.
-  # --> Flat line in log scale, descending, 
-  
-  
-  # test family
-  qplot(data = plaice, fpue_nld) + geom_histogram()  # Gamma, if anything
-  model1 <- gam(data = plaice, fpue_nld ~ s(ssb) + year,
-                family = Gamma(link = 'log'))
-  model2 <- gam(data = plaice, fpue_nld ~ s(ssb) + year,
-                family = gaussian(link = 'log'))
-  
-  gam.check(model1)
-  gam.check(model2)
-  # --> For Gamma, points in QQ plot are closer to line and
-  #   > resid.s histogram is not skewed (while it is for gaussian).
-  AIC(model1, model2)
-  # --> AIC way lower for Gamma
-  # --> k' of 9 is fairly ok, k-index is almost 1.
-  plot(model1)
-  summary(model1)
-  # --> all terms sig in Gamma model.
-  # --> Flat line in log scale, descending, 
- 
+  plot(model2)
+  summary(model2)
+  # --> SSB not sig in both models.
+
 
 # (7.1) PLE vs NLD: nls Mechanistic model  ------------------------------------
   
@@ -779,7 +741,7 @@ if(prior2003 == TRUE) {
   nls.model3 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[plaice$year == 1991]),
                     data = plaice, start = c(qr0 = 2))
   # plot obs vs pred
-  qr0 <- 1.9167
+  qr0 <- 1.038
   creep <- 0
   plaice$pred_f <- c((1 + creep * (plaice$year - min(plaice$year[!is.na(plaice$f_scaled)])) ) * plaice$f_scaled * qr0 /  (1 + (qr0 - 1) * 
                                                                                                              plaice$ssb / plaice$ssb[plaice$year == 1991]))
@@ -788,4 +750,8 @@ if(prior2003 == TRUE) {
   abline(a = 0, b = 1, col = 'red')
   # which model is better?
   AIC(nls.model1, nls.model3)
+  
+  # --> QR0 significant, but not largely different from 1.
+  #   > As comparison, GAM says that ssb has no sig influence.
+  
   
