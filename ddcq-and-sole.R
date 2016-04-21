@@ -482,32 +482,34 @@ if(prior2003 == TRUE) {
   # fit maximum model: including TC and ddcq:
   # Ft = (1 + creep * t) * ft * QR0 / [1 + (QR0 -1) * Bt/B0]
   # where Ft is Catch/B at point t in time, and QR0 is qmax/q1991, and q is catchability.
-  
+
+
+  # Create relative fishing efforts ft, where fo = Fo (efforts scaled so base qo = 1).
+    
   # create scaled effort f = F0 (efforts scaled so base q0=1; by scaling effort of fleet relative F at t0, i.e. 1991)
-  dat$f_scaled <- dat$effort_rel_2003 * dat$effort_rel_2003[dat$year == 1991]  # scale effort to F1991
+  dat$f_scaled <- dat$mean.f[dat$year == 1991] * (dat$effort_rel_2003 / dat$effort_rel_2003[dat$year == 1991])  # scale effort to F1991
   
   # with TC
-  nls.model1 <- nls(mean.f ~ (1 + creep * year) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
-                    data = dat, start = c(qr0 = 1, creep = 0.1))
+  nls.model1 <- nls(mean.f ~ (1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
+                    data = dat, start = c(qr0 = 2, creep = 0.1))
   # use log transformation
-  nls.model2 <- nls(log(mean.f) ~ log((1 + creep * year) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991])),
+  nls.model2 <- nls(log(mean.f) ~ log((1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991])),
                     data = dat[dat$year > 1977,], start = c(qr0 = 2, creep = 2),
                     trace = TRUE)
-                    
-  # without TC
+  # without TC: Ft = ft QRo / [1 + (QRo - 1) Bt / Bo]
   # Ft = ft QRo / [1 + (QRo - 1) Bt / Bo] ;
   nls.model3 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
-                   data = dat, start = c(qr0 = 1))
+                   data = dat, start = c(qr0 = 2))
   # plot obs vs pred
-  qr0 <- 1
-  creep <- 0.1
-  dat$pred_f <- c((1 + creep * dat$year) * dat$f_scaled * qr0 /  (1 + (qr0 - 1) * 
-                          dat$ssb / dat$ssb[dat$year == 1978]))
+  qr0 <- 1.95
+  creep <- 0
+  dat$pred_f <- c((1 + creep * (dat$year - min(dat$year[!is.na(dat$f_scaled)])) ) * dat$f_scaled * qr0 /  (1 + (qr0 - 1) * 
+                          dat$ssb / dat$ssb[dat$year == 1991]))
   plot(dat$pred_f ~ dat$mean.f,
        main = paste0('R² = ', round(digits = 3, cor.test(dat$pred_f, dat$mean.f, method = 'pearson')$estimate ^2))  )
   abline(a = 0, b = 1, col = 'red')
   # which model is better?
-  AIC(nls.model1, nls.model2)
+  AIC(nls.model1, nls.model3)
  
   
 # (4) Same for sole vs BEL BT ---------------------------------------------------------------------
