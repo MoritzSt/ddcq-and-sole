@@ -755,3 +755,23 @@ if(prior2003 == TRUE) {
   #   > As comparison, GAM says that ssb has no sig influence.
   
   
+  # (7.2) PLE vs BEL: nls Mechanistic model  ------------------------------------
+  
+  # for BEL, create scaled effort f = F0 (efforts scaled so base q0=1; by scaling effort of fleet relative F at t0, i.e. 1991)
+  plaice$f_scaled <- plaice$mean.f[plaice$year == 1991] * (plaice$effort_bel_rel_2003 / plaice$effort_bel_rel_2003[plaice$year == 1991])  # scale effort to F1991
+  
+  # with TC
+  nls.model1 <- nls(mean.f ~ (1 + creep * (year - min(plaice$year[!is.na(plaice$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[plaice$year == 1991]),
+                    data = plaice, start = c(qr0 = 2, creep = 0.1))
+  # --> Both QR0 and creep have significant influence here!
+  
+  # plot obs vs pred
+  qr0 <- 1.272175
+  creep <- 0.013153
+  plaice$pred_f <- c((1 + creep * (plaice$year - min(plaice$year[!is.na(plaice$f_scaled)])) ) * plaice$f_scaled * qr0 /  (1 + (qr0 - 1) * 
+                                                                                                                            plaice$ssb / plaice$ssb[plaice$year == 1991]))
+  plot(plaice$pred_f ~ plaice$mean.f,
+       main = paste0('R² = ', round(digits = 3, cor.test(plaice$pred_f, plaice$mean.f, method = 'pearson')$estimate ^2))  )
+  abline(a = 0, b = 1, col = 'red')
+
+  
