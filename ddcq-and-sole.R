@@ -620,3 +620,29 @@ if(prior2003 == TRUE) {
   AIC(model4$lme, model3$lme)  # --> AIC-wise better.
   summary(model4$gam)
   
+  
+  
+  
+# (6) plaice vs NED gam  -------------------------------------------------
+  
+  # create dataset
+  plaice <- select(.data = dat, year, effort_rel_2003, effort_bel_rel_2003)
+  plaice2 <- select(.data = dat, year, ssb, mean.f)
+  plaice2$ssb <- as.numeric(as.character(plaice2$ssb))
+  plaice2$mean.f <- as.numeric(as.character(plaice2$mean.f))
+  plaice <- merge(plaice, plaice2, all.x = F, all.y = F)
+  rm(plaice2)
+  plaice$fpue_NLD <- plaice$mean.f / plaice$effort_rel_2003
+  plaice$fpue_BEL <- plaice$mean.f / plaice$effort_bel_rel_2003
+  
+  # data checks
+  acf(plaice[plaice$year > 1977,])  # --> temporal autocorrelation in ALL variables
+  
+  acf(plaice$fpue_bel, na.action = na.omit)  # --> temporal autocorrelation til year 4
+  # cross correlation
+  cross_corr <- select(.plaicea = plaice, year, ssb, effort_bel_rel_2003, fpue_bel)
+  cor(cross_corr)
+  cor.test(plaice$fpue_bel, plaice$year)  # sig cor
+  cor.test(plaice$ssb, plaice$year)  # non sig
+  cor.test(plaice$fpue_bel, plaice$ssb)  # sig cor [!!!]
+  
