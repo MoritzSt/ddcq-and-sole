@@ -52,6 +52,8 @@
   
   # [!!! Consider plotting share of sole as colour in a map.]
   # Check for BT2. One map per year.
+  plotting_maps <- F
+  if(plotting_maps == T) {
   year_list <- unique(shares$year)[order(unique(shares$year),decreasing = FALSE)]
   subdat1 <- shares[ shares$reg_gear_cod == 'BT2' & shares$vessel_length == 'O15M',]
   country_list <- c('ENG', 'NED', 'GER', 'BEL', 'SCO')
@@ -64,6 +66,7 @@
         plot_factor_in_map(data = subdat2, parameter = 'share', ices_rectangle = 'rectangle', visuals = 'colour')
       }
   }
+  }  # end of plotting_maps
   
    # Non-loop non-package version: Map of shares, O15M, all countries, all years
   
@@ -509,10 +512,30 @@ if(prior2003 == TRUE) {
   
 # (4) Same for sole vs BEL BT ---------------------------------------------------------------------
   
+  # data checks
+  acf(dat$fpue_bel, na.action = na.omit)  # --> temporal autocorrelation til year 4
+  # cross correlation
+  cross_corr <- select(.data = dat, year, ssb, effort_bel_rel_2003, fpue_bel)
+  cor(cross_corr)
+  cor.test(dat$fpue_bel, dat$year)  # sig cor
+  cor.test(dat$ssb, dat$year)  # non sig
+  cor.test(dat$fpue_bel, dat$ssb)  # sig cor [!!!]
+  
+  # test family
+  qplot(data = dat, fpue_bel) + geom_histogram()  # looks gammaesque
   model1 <- gam(data = dat, fpue_bel ~ s(ssb) + year,
                 family = Gamma(link = 'log'))
-  
-  
+  model2 <- gam(data = dat, fpue_bel ~ s(ssb) + year,
+                family = gaussian(link = 'log'))
+  # --> Resids vs linear pred  less biased towards positive values in Gamma
+  AIC(model1, model2)
+  # --> AIC way lower for Gamma
+  # --> k' of 9 seems ok, with k-index > 1.
+  plot(model1)
+  summary(model1)
+  # --> all terms sig in Gamma model.
+  # --> curve with local max, no straight line as for NED,
+  #   > but can be forced flat with low k.
   
   
 # (5) What if I modelled F ~ f + ssb + year? ------------------------------
@@ -596,3 +619,4 @@ if(prior2003 == TRUE) {
   # --> Barely better, but there could now be a trend in resid.s vs predictor.
   AIC(model4$lme, model3$lme)  # --> AIC-wise better.
   summary(model4$gam)
+  
