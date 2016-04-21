@@ -512,7 +512,7 @@ if(prior2003 == TRUE) {
   AIC(nls.model1, nls.model3)
  
   
-# (4) Same for sole vs BEL BT ---------------------------------------------------------------------
+# (4) GAM for sole vs BEL BT ---------------------------------------------------------------------
   
   # data checks
   acf(dat$fpue_bel, na.action = na.omit)  # --> temporal autocorrelation til year 4
@@ -658,7 +658,7 @@ if(prior2003 == TRUE) {
   
   # create dataset
   plaice <- select(.data = dat, year, effort_rel_2003, effort_bel_rel_2003)
-  plaice2 <- select(.data = dat, year, ssb, mean.f)
+  plaice2 <- select(.data = plaice, year, ssb, mean.f)
   plaice2$ssb <- as.numeric(as.character(plaice2$ssb))
   plaice2$mean.f <- as.numeric(as.character(plaice2$mean.f))
   plaice <- merge(plaice, plaice2, all.x = F, all.y = F)
@@ -667,16 +667,17 @@ if(prior2003 == TRUE) {
   plaice$fpue_bel <- plaice$mean.f / plaice$effort_bel_rel_2003
   
   # data checks
-  acf(plaice[plaice$year > 1977,])  # --> temporal autocorrelation in ALL variables
+  acf(plaice[plaice$year > 1977,])  # --> temporal autocorrelation in ALL variables,
+                                    #   > but fairly week in fpue (lag 1 only)
     # cross correlation
   cor(plaice, use = 'na.or.complete')
   cor.test(plaice$fpue_nld, plaice$year, use = 'na.or.complete')  # sig
-  cor.test(plaice$fpue_nld, plaice$ssb, use = 'na.or.complete')  # sig
+  cor.test(plaice$fpue_nld, plaice$ssb, use = 'na.or.complete')  # non sig
   
-  cor.test(plaice$fpue_bel, plaice$year, use = 'na.or.complete')  # sig
-  cor.test(plaice$fpue_bel, plaice$ssb, use = 'na.or.complete')  # sig
+  cor.test(plaice$fpue_bel, plaice$year, use = 'na.or.complete')  # non sig
+  cor.test(plaice$fpue_bel, plaice$ssb, use = 'na.or.complete')  # non sig
   
-  cor.test(plaice$ssb, plaice$year, use = 'na.or.complete', method = 'spearman')  # evtl sig
+  cor.test(plaice$ssb, plaice$year, use = 'na.or.complete', method = 'pearson')  # evtl sig
  
   
 # (6.1) GAM for PLE vs NLD  ----------------------------------------------
@@ -699,8 +700,6 @@ if(prior2003 == TRUE) {
   summary(model1)
   # --> all terms sig in Gamma model.
   # --> Flat line in log scale, descending, 
-  
-  
   
   
 # (6.2) GAM for PLE vs BEL  -------------------------------------------------------
@@ -762,3 +761,31 @@ if(prior2003 == TRUE) {
   # --> all terms sig in Gamma model.
   # --> Flat line in log scale, descending, 
  
+
+# (7.1) PLE vs NLD: nls Mechanistic model  ------------------------------------
+  
+  # for NLD, create scaled effort f = F0 (efforts scaled so base q0=1; by scaling effort of fleet relative F at t0, i.e. 1991)
+  plaice$f_scaled <- plaice$mean.f[plaice$year == 1991] * (plaice$effort_rel_2003 / plaice$effort_rel_2003[plaice$year == 1991])  # scale effort to F1991
+  
+  # with TC
+  nls.model1 <- nls(mean.f ~ (1 + creep * (year - min(plaice$year[!is.na(plaice$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[plaice$year == 1991]),
+                    data = plaice, start = c(qr0 = 2, creep = 0.1))
+  # use log transformation
+  nls.model2 <- nls(log(mean.f) ~ log((1 + creep * (year - min(plaice$year[!is.na(plaice$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[plaice$year == 1991])),
+                    data = plaice, start = c(qr0 = 2, creep = 2),
+                    trace = TRUE)
+  # without TC: Ft = ft QRo / [1 + (QRo - 1) Bt / Bo]
+  # Ft = ft QRo / [1 + (QRo - 1) Bt / Bo] ;
+  nls.model3 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[plaice$year == 1991]),
+                    data = plaice, start = c(qr0 = 2))
+  # plot obs vs pred
+  qr0 <- 1.9167
+  creep <- 0
+  plaice$pred_f <- c((1 + creep * (plaice$year - min(plaice$year[!is.na(plaice$f_scaled)])) ) * plaice$f_scaled * qr0 /  (1 + (qr0 - 1) * 
+                                                                                                             plaice$ssb / plaice$ssb[plaice$year == 1991]))
+  plot(plaice$pred_f ~ plaice$mean.f,
+       main = paste0('R² = ', round(digits = 3, cor.test(plaice$pred_f, plaice$mean.f, method = 'pearson')$estimate ^2))  )
+  abline(a = 0, b = 1, col = 'red')
+  # which model is better?
+  AIC(nls.model1, nls.model3)
+  
