@@ -658,7 +658,7 @@ if(prior2003 == TRUE) {
   
   # create dataset
   plaice <- select(.data = dat, year, effort_rel_2003, effort_bel_rel_2003)
-  plaice2 <- select(.data = plaice, year, ssb, mean.f)
+  plaice2 <- select(.data = plaice_total, year, ssb, mean.f)
   plaice2$ssb <- as.numeric(as.character(plaice2$ssb))
   plaice2$mean.f <- as.numeric(as.character(plaice2$mean.f))
   plaice <- merge(plaice, plaice2, all.x = F, all.y = F)
