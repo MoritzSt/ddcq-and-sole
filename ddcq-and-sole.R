@@ -492,6 +492,14 @@ if(prior2003 == TRUE) {
   # with TC
   nls.model1 <- nls(mean.f ~ (1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
                     data = dat, start = c(qr0 = 2, creep = 0.1))
+  
+    # Omid:
+    # check normality:
+    library(nortest)
+    ad.test(resid(nls.model1))
+    cvm.test(resid(nls.model1))
+    # --> You could use this model, but delete insig. term! 
+  
   # use log transformation
   nls.model2 <- nls(log(mean.f) ~ log((1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991])),
                     data = dat, start = c(qr0 = 2, creep = 2),
@@ -500,8 +508,42 @@ if(prior2003 == TRUE) {
   # Ft = ft QRo / [1 + (QRo - 1) Bt / Bo] ;
   nls.model3 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
                    data = dat, start = c(qr0 = 2))
+  
+  plot(nls.model3)
+  ad.test(resid(nls.model3))
+  cvm.test(resid(nls.model3))
+  # --> Residuals are ok. Normally distributed and (relatively) homoscedastic.
+  # Is there temporal autocorrelation in the residuals?
+  acf(resid(nls.model3))  # but this is maybe not the best test.
+  # OMID checks what test to use for autocorrelation in residuals.
+  
+  # Test for autocorrealtion of redsiduals based on linear regression.
+  # You can regress the consecutive residuals against each other and test for
+  # a significant slope. If there is auto-correlation, then there should be a
+  # linear relationship between consecutive residuals. 
+  # This is called a Breusch-Godfrey test for autocorrelation.
+  # https://stats.stackexchange.com/questions/14914/how-to-test-the-autocorrelation-of-the-residuals
+  res <- resid(nls.model3)
+  n <- length(res)
+  acf_model <- lm(res[-n] ~ res[-1])
+  summary(acf_model)
+  # -> Highly significant, so there might be autocorrealtion in residuals.
+  
+  # Also try Durbin-Watson test, implemented in the lmtest and the car package:
+  library(lmtest)
+  dwtest(nls.model3)
+  library(car)
+  durbinWatsonTest(nls.model3)
+  # ...both don't work, DW-test only works for linear models.
+  testmodel <- lm(data = dat, fpue ~ ssb + year)
+  dwtest(testmodel)
+  
+  # --> Apart from maybe residuals' autocorrelation, model is ok.
+  
+  
+  
   # plot obs vs pred
-  qr0 <- 1.95
+  qr0 <- 1.9167
   creep <- 0
   dat$pred_f <- c((1 + creep * (dat$year - min(dat$year[!is.na(dat$f_scaled)])) ) * dat$f_scaled * qr0 /  (1 + (qr0 - 1) * 
                           dat$ssb / dat$ssb[dat$year == 1991]))
