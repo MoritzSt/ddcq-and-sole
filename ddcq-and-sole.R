@@ -452,6 +452,39 @@ if(prior2003 == TRUE) {
     dev.off()
     
     
+    # use glm ----------------
+    model <- glm(data = dat, fpue ~ log(ssb) + year, family = gaussian(link = 'identity'))
+    summary(model)
+    plot(model)
+    ad.test(resid(model))
+    cvm.test(resid(model))
+    # --> Resis not normallly distreibuted
+    
+    model <- glm(data = dat, fpue ~ log(ssb) + year, family = Gamma(link = 'identity'))
+    summary(model)
+    plot(model)
+    ad.test(resid(model))
+    cvm.test(resid(model))
+    # --> Resids normally distributed
+    acf(resid(model))
+    # --> Resids autocorrelated
+    
+    # correct glm for autocorrelation
+    library(nlme)
+      # without correction for autocor, just rebuilding GLM
+    Mglsbase<-gls(model=fpue~log(ssb)+year, data=dat[dat$year>1977,], method="REML")
+    plot(dat$year[dat$year>1977], resid(Mglsbase, type="normalized"))
+    acf(resid(Mglsbase, type="normalized"))
+      # with correction for autocor
+    Mgls<-gls(model=fpue~log(ssb), data=dat[dat$year>1977,], correlation=corAR1(form=~year), method="REML")
+    plot(Mgls)
+    plot(dat$year[dat$year>1977], resid(Mgls, type="normalized"))
+    
+    summary(Mgls)
+    ad.test(resid(Mgls, type="normalized"))
+    cvm.test(resid(Mgls, type="normalized"))  # --> Resids not normally distr.
+    acf(resid(Mgls, type="normalized"))    
+    
 
 # (1.6.2) Sole SSB Stats: Belgium FPUE ~ biomass + year --------------------------
 
