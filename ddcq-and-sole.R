@@ -490,17 +490,20 @@ if(prior2003 == TRUE) {
   dat$f_scaled <- dat$mean.f[dat$year == 1991] * (dat$effort_rel_2003 / dat$effort_rel_2003[dat$year == 1991])  # scale effort to F1991
   
   # with TC
-  nls.model1 <- nls(mean.f ~ (1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
+  nls.model1 <- nls(mean.f ~ (1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * 
+                    f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
                     data = dat, start = c(qr0 = 2, creep = 0.1))
   
+    summary(nls.model1)
     # Omid:
     # check normality:
     library(nortest)
     ad.test(resid(nls.model1))
     cvm.test(resid(nls.model1))
-    # --> You could use this model, but delete insig. term! 
+    # --> You could use this model type, but delete insig. term: creep.
   
   # use log transformation
+    # Rabea: Do not log-transform response variable. Rather use link (if using GLM or GAM  etc.)
   nls.model2 <- nls(log(mean.f) ~ log((1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991])),
                     data = dat, start = c(qr0 = 2, creep = 2),
                     trace = TRUE)
@@ -510,11 +513,12 @@ if(prior2003 == TRUE) {
                    data = dat, start = c(qr0 = 2))
   
   plot(nls.model3)
+  summary(nls.model3)
   ad.test(resid(nls.model3))
   cvm.test(resid(nls.model3))
   # --> Residuals are ok. Normally distributed and (relatively) homoscedastic.
   # Is there temporal autocorrelation in the residuals?
-  acf(resid(nls.model3))  # but this is maybe not the best test.
+    acf(resid(nls.model3))  # but this is maybe not the best test.
   # OMID checks what test to use for autocorrelation in residuals.
   
   # Test for autocorrealtion of redsiduals based on linear regression.
@@ -540,6 +544,9 @@ if(prior2003 == TRUE) {
   
   # --> Apart from maybe residuals' autocorrelation, model is ok.
   
+  
+  # 3.1.2: Adress autocorrelated residuals in nls.
+  plot(resid(nls.model3) ~ dat$year[dat$year>1977])
   
   
   # plot obs vs pred
@@ -585,10 +592,13 @@ if(prior2003 == TRUE) {
 # (4.1) Sole vs BEL: mechanistic model  ----------------------------------
   
   # for BEL, create scaled effort f = F0 (efforts scaled so base q0=1; by scaling effort of fleet relative F at t0, i.e. 1991)
+  dat_backup <- dat
+  dat <- dat[dat$year >= 1990,]
   dat$f_scaled <- dat$mean.f[dat$year == 1991] * (dat$effort_bel_rel_2003 / dat$effort_bel_rel_2003[dat$year == 1991])  # scale effort to F1991
   
   # with TC
-  nls.model1 <- nls(mean.f ~ (1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
+  nls.model1 <- nls(mean.f ~ (1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) *
+                    f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
                     data = dat, start = c(qr0 = 2, creep = 0.1))
                     # use log transformation
                     nls.model2 <- nls(log(mean.f) ~ log((1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991])),
