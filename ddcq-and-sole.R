@@ -411,7 +411,7 @@ if(prior2003 == TRUE) {
     # --> Autocorrelation up to a six years lag in fpue.
   
 
-  # Test family
+  # (1.6.1.A): Test family and shape with GAM -----------------
   model.gaussian <- gam(data = dat, formula = fpue ~ s(ssb, k = -1, fx = F) + year,
                family = gaussian(link = 'log') )
   
@@ -426,9 +426,31 @@ if(prior2003 == TRUE) {
     AIC(model.gaussian, model.gamma)
     # --> Gamma is better AIC-wise.
     # --> Automatic k' of 9 seems OK for the model, k-index is 0.963
-    # --> Final model.
 
-  
+    # Are residuals OK?
+    ad.test(resid(model.gaussian))  # --> Nor normally dist for gaussian
+    cvm.test(resid(model.gaussian))
+    ad.test(resid(model.gamma))
+    cvm.test(resid(model.gamma))  # --> Normally distr for Gamma
+    x11()
+    acf(resid(model.gamma))
+    dev.off()  # Residuals autocorrelated.
+    
+    # check shape of the relationship
+    x11()
+    plot(model.gamma)  # --> linear SSB-effect on lin-log scale
+    summary(model.gamma)  # --> ...and edf is 1, so linear effect makes sense
+    dev.off()
+    
+    
+    # What if I smooth year as well and do not assume linear effect of year?
+    model <- gam(data = dat, fpue ~ s(ssb) + s(year),
+                 family = Gamma(link = 'log'))
+    summary(model)
+    x11()
+    plot(model)
+    dev.off()
+    
     
 
 # (1.6.2) Sole SSB Stats: Belgium FPUE ~ biomass + year --------------------------
