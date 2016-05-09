@@ -441,35 +441,88 @@ if(prior2003 == TRUE) {
     plot(model.gamma)  # --> linear SSB-effect on lin-log scale
     summary(model.gamma)  # --> ...and edf is 1, so linear effect makes sense
     dev.off()
+    first.model.gamma <- model.gamma
     
+        
+        # What if I smooth year as well and do not assume linear effect of year?
+        model <- gam(data = dat, fpue ~ s(ssb) + s(year),
+                     family = Gamma(link = 'log'))
+        summary(model)
+        x11()
+        plot(model)
+        dev.off()
+          # The reasoning why this is not leading me futher needs to be clearer.
     
-    # What if I smooth year as well and do not assume linear effect of year?
-    model <- gam(data = dat, fpue ~ s(ssb) + s(year),
-                 family = Gamma(link = 'log'))
-    summary(model)
+        
+    # (1.6.1.B): Does consideration of plaice catches and F help? ---------
+    plaice2 <- select(.data = plaice_total, year, ssb, mean.f)
+    plaice2$ssb <- as.numeric(as.character(plaice2$ssb))
+    plaice2$mean.f <- as.numeric(as.character(plaice2$mean.f))
+    plaice2 <- rename(.data = plaice2, ssb_ple = ssb, mean.f_ple = mean.f)
+    dat_with_ple <- merge(dat, plaice2, all.x = T, all.y = F)
+    rm(plaice2)
+    dat_with_ple_all_years <- dat_with_ple
+    dat_with_ple <- dat_with_ple[!is.na(dat_with_ple$fpue),]
+    cor(dat_with_ple$fpue, dat_with_ple$mean.f_ple)
     x11()
-    plot(model)
+    plot(dat_with_ple$fpue ~ dat_with_ple$mean.f_ple)
     dev.off()
     
+    model.gamma <- gam(data = dat_with_ple,
+                       formula = fpue ~ s(ssb, k = -1, fx = F) + year + s(mean.f_ple),
+                       family = Gamma(link = 'log') )
+    summary(model.gamma)
+    x11()
+    par(mfrow=c(1,2))
+    plot(model.gamma)
+    par(mfrow=c(2,2))
+    gam.check(model.gamma)
+    ad.test(resid(model.gamma))
+    cvm.test(resid(model.gamma))  # --> OK, resids normally distributed
+    par(mfrow=c(1,1))
+    acf(resid(model.gamma))  # --> resids look better that first.model.gamma
+    AIC(model.gamma, first.model.gamma)  # --> AIC-wise, considering F.ple helps a lot!
+    dev.off()
+    # --> Statistically (but check conceptually [!!!]),
+    #     consideration of plaice F is a good idea.
+    # --> Effect of both sole ssb and plaice F could be considered log-linear,
+    #     i.e. should be log() ed while response var is not.
     
-    # use glm ----------------
+    
+    # (1.6.1.C) use glm ------------
     model <- glm(data = dat, fpue ~ log(ssb) + year, family = gaussian(link = 'identity'))
     summary(model)
     plot(model)
     ad.test(resid(model))
     cvm.test(resid(model))
-    # --> Resis not normallly distreibuted
+    # --> Resis not normallly distributed
     
     model <- glm(data = dat, fpue ~ log(ssb) + year, family = Gamma(link = 'identity'))
     summary(model)
     plot(model)
     ad.test(resid(model))
-    cvm.test(resid(model))
-    # --> Resids normally distributed
-    acf(resid(model))
-    # --> Resids autocorrelated
+    cvm.test(resid(model))  # --> Resids normally distributed
+    acf(resid(model))  # --> Resids autocorrelated
+    model_no_plaice <- model  # safe model for comparison
     
-    # correct glm for autocorrelation
+    
+    # include plaice F in glm ----
+    model <- glm(data = dat_with_ple,
+                 fpue ~ log(ssb) + year + log(mean.f_ple),
+                 family = Gamma(link = 'identity'))
+    summary(model)
+    x11()
+    par(mfrow=c(2,2))
+    plot(model)
+    ad.test(resid(model))
+    cvm.test(resid(model))  # --> Resids normally distributed
+    par(mfrow=c(2,1))
+    acf(resid(model))
+    acf(resid(model_no_plaice)) # --> Still autocor resid.s, but few and less
+    AIC(model, model_no_plaice)  # --> AIC with plaice better than without
+    
+    
+    # correct glm for autocorrelation ----
     library(nlme)
       # without correction for autocor, just rebuilding GLM
     Mglsbase<-gls(model=fpue~log(ssb)+year, data=dat[dat$year>1977,], method="REML")
@@ -484,6 +537,13 @@ if(prior2003 == TRUE) {
     ad.test(resid(Mgls, type="normalized"))
     cvm.test(resid(Mgls, type="normalized"))  # --> Resids not normally distr.
     acf(resid(Mgls, type="normalized"))    
+      # with plaice F
+    model<-gls(model=fpue~log(ssb) + log(mean.f_ple),
+               data=dat_with_ple,
+               correlation=corAR1(form=~year), method="REML")
+    acf(resid(model, type="normalized"))  # --> Resids still autocorrealted
+    ad.test(resid(model, type="normalized"))  # --> Resids not normally distributed
+    summary(model)
     
 
 # (1.6.2) Sole SSB Stats: Belgium FPUE ~ biomass + year --------------------------
