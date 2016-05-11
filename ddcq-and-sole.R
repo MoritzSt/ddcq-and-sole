@@ -449,6 +449,7 @@ if(prior2003 == TRUE) {
                      family = Gamma(link = 'log'))
         summary(model)
         x11()
+        par(mfrow=c(2,2))
         plot(model)
         dev.off()
           # The reasoning why this is not leading me futher needs to be clearer.
@@ -462,6 +463,7 @@ if(prior2003 == TRUE) {
     dat_with_ple <- merge(dat, plaice2, all.x = T, all.y = F)
     rm(plaice2)
     dat_with_ple_all_years <- dat_with_ple
+    write.csv(x = dat_with_ple, file = paste0(working_directory, '\\output\\dat_with_ple.csv'))
     dat_with_ple <- dat_with_ple[!is.na(dat_with_ple$fpue),]
     cor(dat_with_ple$fpue, dat_with_ple$mean.f_ple)
     x11()
@@ -544,6 +546,7 @@ if(prior2003 == TRUE) {
     acf(resid(model, type="normalized"))  # --> Resids still autocorrealted
     ad.test(resid(model, type="normalized"))  # --> Resids not normally distributed
     summary(model)
+    dev.off()
     
 
 # (1.6.2) Sole SSB Stats: Belgium FPUE ~ biomass + year --------------------------
