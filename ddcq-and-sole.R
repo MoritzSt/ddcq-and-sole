@@ -487,17 +487,77 @@ if(prior2003 == TRUE) {
     dev.off()
     # --> Statistically (but check conceptually [!!!]),
     #     consideration of plaice F is a good idea.
-    # --> Effect of both sole ssb and plaice F could be considered log-linear,
-    #     i.e. should be log() ed while response var is not.
+    # --> Effect of both sole ssb and plaice F could be considered linear. No log.
+    
+    # Test log = 'identity' also
+    model.ident <- gam(data = dat_with_ple,
+                       formula = fpue ~ s(ssb, k = -1, fx = F) + year + s(mean.f_ple),
+                       family = Gamma(link = 'identity') )   
+    AIC(model.gamma, model.ident)  # --> almost identical AIC
+    x11()
+    par(mfrow=c(1,2))
+    plot(model.ident)
+    par(mfrow=c(2,2))
+    gam.check(model.ident)
+    ad.test(resid(model.ident))
+    cvm.test(resid(model.ident))  
+    par(mfrow=c(1,1))
+    summary(model.ident)
+    acf(resid(model.ident))  # --> everything looks very much the same like log link.
+    # --> linearity of ssb and almost linearity of F_ple on FPUE is consistent
+    
+    # Test gaussian also
+        model.gaussian <- gam(data = dat_with_ple,
+                       formula = fpue ~ s(ssb, k = -1, fx = F) + year + s(mean.f_ple),
+                       family = gaussian(link = 'identity') )   
+    AIC(model.gamma, model.gaussian)  # --> gaussian worse
+    x11()
+    par(mfrow=c(1,2))
+    plot(model.gaussian)
+    par(mfrow=c(2,2))
+    gam.check(model.gaussian)
+    ad.test(resid(model.gaussian))
+    cvm.test(resid(model.gaussian))  # --> residual distribution normal  
+    par(mfrow=c(1,1))
+    acf(resid(model.gaussian))  # --> multicollinearity almost gone!
+    summary(model.gaussian)  # --> significances and curve shapes consistent.
+    dev.off()
+    # --> again: linearity of ssb and almost linearity of F_ple on FPUE is consistent
+    
+    # (1.6.1.B.+) correct autocor from gam(FPUE ~ SSB + year + F_ple) ----
+    
+      # ...starting with gaussian, as that had lowest autocorr before
+      # first the baseline, i.e. normal gam as gamm
+      model.baseline<- gamm(data = dat_with_ple,
+                       formula = fpue ~ s(ssb) + year + s(mean.f_ple),
+                       family = gaussian(link = 'identity'))
+
+              model <- gamm(data = dat_with_ple,
+                       formula = fpue ~ s(ssb) + s(mean.f_ple),
+                       family = gaussian(link = 'identity'),
+                       correlation=corAR1(form=~year))
+    model.gaussian.autocor <- model
+    AIC(model$lme, model.baseline$lme)  # --> autoregressive term helps
+    x11()
+    ad.test(resid(model$lme, type = 'normalized'))
+    cvm.test(resid(model$lme, type = 'normalized'))  # --> Resid.s non-normally distributed
+    acf(resid(model$lme, type = 'normalized'))  # --> No autocorrealtion in resids
+    par(mfrow=c(2,1))
+    plot(model$gam)
+    summary(model$gam)
+    summary(model$lme)  # --> minimallest R2, no sig terms [!!!]
+    
+    ### --->  Maybe the gaussian model (because very low autocorrelation)
+    ###       without autoregressive term is the best it gets.
     
     
-    # (1.6.1.C) use glm ------------
+# (1.6.1.C) use glm ------------
     model <- glm(data = dat, fpue ~ log(ssb) + year, family = gaussian(link = 'identity'))
     summary(model)
     plot(model)
     ad.test(resid(model))
     cvm.test(resid(model))
-    # --> Resis not normallly distributed
+    # --> Resis not normally distributed
     
     model <- glm(data = dat, fpue ~ log(ssb) + year, family = Gamma(link = 'identity'))
     summary(model)
@@ -677,6 +737,40 @@ if(prior2003 == TRUE) {
   abline(a = 0, b = 1, col = 'red')
   # which model is better?
   AIC(nls.model1, nls.model3)
+  dev.off()
+  
+  
+# (3.2) add F_plaice to mechanistic model SOL vs NLD ----
+    # for NLD and with PLE, create scaled effort
+  dat_with_ple$f_scaled <- dat_with_ple$mean.f[dat_with_ple$year == 1991] *
+    (dat_with_ple$effort_rel_2003 / dat_with_ple$effort_rel_2003[dat_with_ple$year == 1991])  # scale effort to F1991
+  
+    # Use a linear relationship of sole F with plaice F
+  model <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) * 
+                    f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
+                    ple_effect * (mean.f_ple / f_scaled),
+                    data = dat_with_ple, start = c(qr0 = 2, creep = 0.1, ple_effect = 0))
+  
+  summary(model)  # --> FPUE_sol increases with FPUE_ple... not expected!
+                  # ... but maybe the reason is that, whatever increases FPUE of
+                  #     the one would also act on the other.
+                  x11()
+                  plot(y = dat_with_ple$fpue, x = dat_with_ple$mean.f_ple / dat_with_ple$f_scaled)
+                  cor.test(y = dat_with_ple$fpue, x = dat_with_ple$mean.f_ple / dat_with_ple$f_scaled)
+                  # ... not really that simple...
+                  dev.off()
+                  
+  acf(resid(model))  # --> residuals autocorrelated...
+  plot(resid(model), type = 'h')
+  ad.test(resid(model))  # --> ...and not normally distributed.
+  x11()
+  par(mfrow=c(2,1))
+  plot(resid(model) ~ dat_with_ple$year, type = 'h')
+  plot(dat_with_ple$mean.f ~ dat_with_ple$year)
+  points(predict(model) ~ dat_with_ple$year, col = 'red')
+  message(paste0('R2: ',   # calculate R2
+          round(digits = 3, x = cor.test(predict(model), dat_with_ple$mean.f,
+                         method = 'pearson')$estimate ^2)))
  
   
 # (4) GAM for sole vs BEL BT ---------------------------------------------------------------------
