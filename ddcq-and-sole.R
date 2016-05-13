@@ -484,6 +484,7 @@ if(prior2003 == TRUE) {
     par(mfrow=c(1,1))
     acf(resid(model.gamma))  # --> resids look better that first.model.gamma
     AIC(model.gamma, first.model.gamma)  # --> AIC-wise, considering F.ple helps a lot!
+    anova(model.gamma, first.model.gamma)  # --> cannot interpret that [!!!]
     dev.off()
     # --> Statistically (but check conceptually [!!!]),
     #     consideration of plaice F is a good idea.
@@ -524,6 +525,7 @@ if(prior2003 == TRUE) {
     dev.off()
     # --> again: linearity of ssb and almost linearity of F_ple on FPUE is consistent
     
+
     # (1.6.1.B.+) correct autocor from gam(FPUE ~ SSB + year + F_ple) ----
     
       # ...starting with gaussian, as that had lowest autocorr before
@@ -549,9 +551,27 @@ if(prior2003 == TRUE) {
     
     ### --->  Maybe the gaussian model (because very low autocorrelation)
     ###       without autoregressive term is the best it gets.
+   
+    
+# 1.6.1.C  try Fple/Fsol as plaice effect in GAM ----
+    model <- gam(data = dat_with_ple,
+                          formula = fpue ~ s(ssb) + year + s(I(mean.f_ple / mean.f)),
+                          family = gaussian(link = 'identity') )
+    AIC(model, model.gaussian)  # --> AIC much better
+    x11()
+    par(mfrow=c(1,2))
+    plot(model)
+    par(mfrow=c(2,2))
+    gam.check(model)
+    ad.test(resid(model))
+    cvm.test(resid(model))  # --> residual distribution not normal  
+    par(mfrow=c(1,1))
+    acf(resid(model))  # --> multicollinearity
+    summary(model)  # --> significances and curve shapes consistent.
+    dev.off()
     
     
-# (1.6.1.C) use glm ------------
+# (1.6.1.D) use glm ------------
     model <- glm(data = dat, fpue ~ log(ssb) + year, family = gaussian(link = 'identity'))
     summary(model)
     plot(model)
@@ -695,9 +715,14 @@ if(prior2003 == TRUE) {
   ad.test(resid(nls.model3))
   cvm.test(resid(nls.model3))
   # --> Residuals are ok. Normally distributed and (relatively) homoscedastic.
+  par(mfrow=c(2,1))
+  plot(resid(nls.model3) ~ dat$year[dat$year >1977], type = 'h')
+  plot(dat$mean.f[dat$year >1977] ~ dat$year[dat$year >1977])
+  points(predict(nls.model3) ~ dat$year[dat$year >1977], col = 'red')
+  
   # Is there temporal autocorrelation in the residuals?
     acf(resid(nls.model3))  # but this is maybe not the best test.
-  # OMID checks what test to use for autocorrelation in residuals.
+  dev.off()  
   
   # Test for autocorrealtion of redsiduals based on linear regression.
   # You can regress the consecutive residuals against each other and test for
@@ -771,7 +796,40 @@ if(prior2003 == TRUE) {
   message(paste0('R2: ',   # calculate R2
           round(digits = 3, x = cor.test(predict(model), dat_with_ple$mean.f,
                          method = 'pearson')$estimate ^2)))
+ dev.off()
+  
+# (3.3) Try using F_ple / F_sol instead FPUE_sol to determine plaice effect ----
+  x11()
+  plot(x = dat_with_ple$year, y = dat_with_ple$mean.f_ple / dat_with_ple$mean.f)
  
+   model <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) * f_scaled *
+                qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
+                ple_effect * (mean.f_ple / mean.f),
+               data = dat_with_ple, start = c(qr0 = 2, creep = 0.1, ple_effect = 0))
+   
+   plot(model)  # there is still some trend in the residuals
+   par(mfrow=c(2,1))
+   plot(resid(model) ~ dat_with_ple$year, type = 'h')
+   plot(dat_with_ple$mean.f ~ dat_with_ple$year)
+   points(predict(model) ~ dat_with_ple$year, col = 'red')
+   message(paste0('R2: ',   # calculate R2
+                  round(digits = 3, x = cor.test(predict(model), dat_with_ple$mean.f,
+                                                 method = 'pearson')$estimate ^2)))
+   
+   ad.test(resid(model))
+   cvm.test(resid(model))  # --> residuals normally distributed
+   acf(resid(model))  # ---> residuals autocorrelated
+   AIC(model, nls.model3)  # --> model performs better than without plaice consideration
+   anova(model, nls.model3)  # --> sign better with ple effect
+   summary(model)
+   par(mfrow=c(2,2))
+   plot(y = predict(model), x = dat_with_ple$ssb)
+   plot(y = predict(model), x = dat_with_ple$year)
+   plot(y = predict(model), x = dat_with_ple$mean.f_ple / dat_with_ple$mean.f)
+   dev.off()
+   
+   
+  
   
 # (4) GAM for sole vs BEL BT ---------------------------------------------------------------------
   
