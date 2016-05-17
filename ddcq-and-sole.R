@@ -826,6 +826,8 @@ if(prior2003 == TRUE) {
    plot(y = predict(model), x = dat_with_ple$ssb)
    plot(y = predict(model), x = dat_with_ple$year)
    plot(y = predict(model), x = dat_with_ple$mean.f_ple / dat_with_ple$mean.f)
+   plot(resid(model) ~ predict(model), col = 'red')
+   
    dev.off()
    
    
@@ -863,32 +865,89 @@ if(prior2003 == TRUE) {
   
   # for BEL, create scaled effort f = F0 (efforts scaled so base q0=1; by scaling effort of fleet relative F at t0, i.e. 1991)
   dat_backup <- dat
-  dat <- dat[dat$year >= 1990,]
-  dat$f_scaled <- dat$mean.f[dat$year == 1991] * (dat$effort_bel_rel_2003 / dat$effort_bel_rel_2003[dat$year == 1991])  # scale effort to F1991
+  #dat <- dat[dat$year >= 1990,]
+  dat$f_scaled <- dat$mean.f[dat$year == 1991] * (dat$effort_bel_rel_2003 / dat$effort_bel_rel_2003[dat$year == 1991])  # scale effort to BEL F1991
   
   # with TC
   nls.model1 <- nls(mean.f ~ (1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) *
                     f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
                     data = dat, start = c(qr0 = 2, creep = 0.1))
-                    # use log transformation
-                    nls.model2 <- nls(log(mean.f) ~ log((1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991])),
-                                      data = dat, start = c(qr0 = 2, creep = 2),
-                                      trace = TRUE)
+  model <- nls.model1
+  
+        # check model
+        x11()
+        plot(model)  # trend in the residuals
+        par(mfrow=c(2,1))
+        plot(resid(model) ~ dat$year, type = 'h')
+        plot(dat$mean.f ~ dat$year)
+        points(predict(model) ~ dat$year, col = 'red')
+        message(paste0('R2: ',   # calculate R2
+                       round(digits = 3, x = cor.test(predict(model), dat$mean.f,
+                                                      method = 'pearson')$estimate ^2)))
+        
+        ad.test(resid(model))
+        cvm.test(resid(model))  # --> residuals normally distributed
+        acf(resid(model))  # ---> residuals autocorrelated
+        summary(model)  # --> QR0 significant, creep not.
+        plot(resid(model) ~ predict(model), col = 'red')
+        
+        dev.off()
+  
+
   # without TC: Ft = ft QRo / [1 + (QRo - 1) Bt / Bo]
   # Ft = ft QRo / [1 + (QRo - 1) Bt / Bo] ;
   nls.model3 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
                     data = dat, start = c(qr0 = 2))
-  # plot obs vs pred
-  qr0 <- 6.592
-  creep <- 0
-  dat$pred_f <- c((1 + creep * (dat$year - min(dat$year[!is.na(dat$f_scaled)])) ) * dat$f_scaled * qr0 /  (1 + (qr0 - 1) * 
-                                                                                                             dat$ssb / dat$ssb[dat$year == 1991]))
-  plot(dat$pred_f ~ dat$mean.f,
-       main = paste0('R² = ', round(digits = 3, cor.test(dat$pred_f, dat$mean.f, method = 'pearson')$estimate ^2))  )
-  abline(a = 0, b = 1, col = 'red')
-  # which model is better?
-  AIC(nls.model1, nls.model3)
+  model <- nls.model3
+  AIC(nls.model1, nls.model3)  # --> Not sig better
+  # --> Same residual issues like above, QR0 significant (analysis not shown)
   
+
+# (4.2) SOL vs BEL: mechanistic + plaice effect Fple/Fsol ----
+  
+  dat_with_ple <- dat_with_ple_all_years
+  dat_with_ple$f_scaled <- dat_with_ple$mean.f[dat$year == 1991] *
+                            (dat_with_ple$effort_bel_rel_2003 /
+                             dat_with_ple$effort_bel_rel_2003[dat_with_ple$year == 1991])  # scale effort to BEL F1991
+  
+  model <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) * f_scaled *
+                 qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
+                 ple_effect * (mean.f_ple / mean.f),
+               data = dat_with_ple, start = c(qr0 = 2, creep = 0.1, ple_effect = 0))
+  x11()
+  plot(model)  # there is still some trend in the residuals
+  par(mfrow=c(2,1))
+  plot(resid(model) ~ dat_with_ple$year, type = 'h')
+  plot(dat_with_ple$mean.f ~ dat_with_ple$year)
+  points(predict(model) ~ dat_with_ple$year, col = 'red')
+  message(paste0('R2: ',   # calculate R2
+                 round(digits = 3, x = cor.test(predict(model), dat_with_ple$mean.f,
+                                                method = 'pearson')$estimate ^2)))
+  
+  ad.test(resid(model))
+  cvm.test(resid(model))  # --> residuals normally distributed
+  acf(resid(model))  # ---> residuals autocorrelated
+  AIC(model, nls.model3)  # --> model performs better than without plaice consideration
+  anova(model, nls.model3)  # --> sign better with ple effect
+  summary(model)  # --> only QR0 and ple_effect sig, creep is not
+  par(mfrow=c(2,2))
+  plot(y = predict(model), x = dat_with_ple$ssb)
+  plot(y = predict(model), x = dat_with_ple$year)
+  plot(y = predict(model), x = dat_with_ple$mean.f_ple / dat_with_ple$mean.f)
+  plot(resid(model) ~ predict(model), col = 'red')
+  nls.model4 <- model
+  dev.off()
+  
+  
+  # (4.2.2) remove insignificant term (creep) ----
+  model <- nls(mean.f ~ f_scaled *  # tech creep term removed
+                 qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
+                 ple_effect * (mean.f_ple / mean.f),
+               data = dat_with_ple, start = c(qr0 = 2, ple_effect = 0))
+  # --> Diagnostics:
+  # --> Both terms significant, residuals normally distr., but autocorrelated
+        AIC(model, nls.model4)
+        anova(model, nls.model4)  # --> slight, but insig improvement without insig term
   
   
 # (5) What if I GAM-modelled F ~ f + ssb + year? ------------------------------
