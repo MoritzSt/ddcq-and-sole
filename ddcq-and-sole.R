@@ -1107,6 +1107,7 @@ if(prior2003 == TRUE) {
 
 # (7.1) PLE vs NLD: nls Mechanistic model  ------------------------------------
   # add sole data
+  plaice <- plaice_backup  # ... should lines below have been run already
   sole_dat <- select(.data = dat, year, mean.f)
   sole_dat <- rename(.data = sole_dat, mean.f_sol = mean.f)
   plaice <- merge(plaice, sole_dat, all.x=T, all.y=F)
@@ -1121,20 +1122,26 @@ if(prior2003 == TRUE) {
                     data = plaice, start = c(qr0 = 2, creep = 0.1))
   model <- nls.model1
   x11()
+  par(mfrow=c(2,4))  # RESIDUALS DIAGNOSTIC PLOTS
   plot(model)  # --> no trend in resid.s, it seems
+  plot(predict(model) ~ plaice$mean.f,
+       main = paste0('R² = ', round(digits = 3, cor.test(predict(model), plaice$mean.f, method = 'pearson')$estimate ^2))  )
+  abline(a = 0, b = 1, col = 'red')
+  acf(resid(model))  # --> resid.s autocorrelated
+  hist(x = resid(model))
+  plot(resid(model) ~ predict(model), col = 'red', main = paste0('cor: p = ',
+             round(cor.test(x = resid(model), y = predict(model))$p.value, digits = 3 )))
+    plot(resid(model) ~ plaice$year, main = paste0('cor: p = ',
+             round(cor.test(x = resid(model), y = plaice$year)$p.value, digits = 3 )))
+  plot(resid(model) ~ plaice$ssb, main = paste0('cor: p = ',
+             round(cor.test(x = resid(model), y = plaice$ssb)$p.value, digits = 3 )))
+  plot(resid(model) ~ plaice$mean.f, main = paste0('cor: p = ',
+             round(cor.test(x = resid(model), y = plaice$mean.f)$p.value, digits = 3 )))
+  # --> resid.s increase sig with response var
+
   ad.test(resid(model))
   cvm.test(resid(model))  # --> resid.s normally distributed
-  acf(resid(model))  # --> resid.s autocorrelated
-  message(paste0('R2: ',   # calculate R2
-                 round(digits = 3, x = cor.test(predict(model), plaice$mean.f,
-                                                method = 'pearson')$estimate ^2)))
-  par(mfrow=c(2,2))
-  # resids vs predictor
-  plot(resid(model) ~ plaice$ssb)
-  plot(resid(model) ~ plaice$year)
-  plot(resid(model) ~ plaice$mean.f)
-  plot(resid(model), type = 'histogram')
-  
+
   summary(model)  # only QR0 sig, and close to 1
   dev.off()
   
@@ -1158,6 +1165,7 @@ if(prior2003 == TRUE) {
   par(mfrow=c(2,1))
   plot(plaice$fpue_nld ~ plaice$year)
   plot(x = plaice$year, y = plaice$mean.f_sol / plaice$mean.f)
+  cor.test(x = plaice$year, y = plaice$mean.f_sol / plaice$mean.f)
   
   nls.model4 <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) *
                  f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
@@ -1172,25 +1180,58 @@ if(prior2003 == TRUE) {
   dev.off()
   
   
-  
 # (7.2) PLE vs BEL: nls Mechanistic model  ------------------------------------
   
   plaice <- plaice_backup
   # for BEL, create scaled effort f = F0 (efforts scaled so base q0=1; by scaling effort of fleet relative F at t0, i.e. 1991)
   plaice$f_scaled <- plaice$mean.f[plaice$year == 1991] * (plaice$effort_bel_rel_2003 / plaice$effort_bel_rel_2003[plaice$year == 1991])  # scale effort to F1991
-  
-  # with TC
-  nls.model1 <- nls(mean.f ~ (1 + creep * (year - min(plaice$year[!is.na(plaice$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[plaice$year == 1991]),
-                    data = plaice, start = c(qr0 = 2, creep = 0.1))
-  # --> Both QR0 and creep have significant influence here!
-  
-  # plot obs vs pred
-  qr0 <- 1.272175
-  creep <- 0.013153
-  plaice$pred_f <- c((1 + creep * (plaice$year - min(plaice$year[!is.na(plaice$f_scaled)])) ) * plaice$f_scaled * qr0 /  (1 + (qr0 - 1) * 
-                                                                                                                            plaice$ssb / plaice$ssb[plaice$year == 1991]))
-  plot(plaice$pred_f ~ plaice$mean.f,
-       main = paste0('R² = ', round(digits = 3, cor.test(plaice$pred_f, plaice$mean.f, method = 'pearson')$estimate ^2))  )
-  abline(a = 0, b = 1, col = 'red')
 
+  # with TC
+  nls.model1 <- nls(mean.f ~ (1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * 
+                      f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
+                    data = plaice, start = c(qr0 = 2, creep = 0.1))
+  model <- nls.model1
   
+  x11()  # RESIDUALS DIAGNOSTIC PLOTS
+  par(mfrow=c(2,3))
+  plot(model)  # --> no trend in resid.s, it seems
+  plot(predict(model) ~ plaice$mean.f,
+       main = paste0('R² = ', round(digits = 3, cor.test(predict(model), plaice$mean.f, method = 'pearson')$estimate ^2))  )
+  abline(a = 0, b = 1, col = 'red')
+  acf(resid(model))  # --> resid.s autocorrelated
+  hist(x = resid(model))
+  plot(resid(model) ~ predict(model), col = 'red')
+  abline(0,0, lty = 2)
+  plot(resid(model) ~ plaice$year)
+  abline(0,0, lty = 2)
+  plot(resid(model) ~ plaice$mean.f)
+  abline(0,0, lty = 2)
+  # --> resid.s diagnostics:
+  plot(resid(model))
+  # [!!! TO DO ]
+  
+  ad.test(resid(model))
+  cvm.test(resid(model))  # --> resid.s normally distributed
+  
+  summary(model)  # --> only QR0 sig, but close to 1
+  dev.off()
+  
+  
+  # nls(PLE vs BEL)  with insig terms removed
+  nls.model3 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
+                    data = plaice, start = c(qr0 = 2))
+  model <- nls.model3
+  # --> (diagnostic plots not shown)
+  # [!!! TO DO ]
+  
+  
+  # nls(PLE vs BEL)  with sole effect
+  nls.model4 <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) *
+                      f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
+                      ple_effect * (mean.f_sol / mean.f),
+                    data = plaice, start = c(qr0 = 2, creep = 0.1, ple_effect = 0))
+  model <- nls.model4
+  # --> (diagnostic plots not shown)
+  # [!!! TO DO ]
+
+  #
