@@ -1106,38 +1106,76 @@ if(prior2003 == TRUE) {
 
 
 # (7.1) PLE vs NLD: nls Mechanistic model  ------------------------------------
-  
+  # add sole data
+  sole_dat <- select(.data = dat, year, mean.f)
+  sole_dat <- rename(.data = sole_dat, mean.f_sol = mean.f)
+  plaice <- merge(plaice, sole_dat, all.x=T, all.y=F)
+  plaice_backup <- plaice
+  plaice <- plaice[!is.na(plaice$fpue_nld),]
   # for NLD, create scaled effort f = F0 (efforts scaled so base q0=1; by scaling effort of fleet relative F at t0, i.e. 1991)
   plaice$f_scaled <- plaice$mean.f[plaice$year == 1991] * (plaice$effort_rel_2003 / plaice$effort_rel_2003[plaice$year == 1991])  # scale effort to F1991
   
   # with TC
-  nls.model1 <- nls(mean.f ~ (1 + creep * (year - min(plaice$year[!is.na(plaice$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[plaice$year == 1991]),
+  nls.model1 <- nls(mean.f ~ (1 + creep * (year - min(dat$year[!is.na(dat$f_scaled)]))) * 
+                      f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
                     data = plaice, start = c(qr0 = 2, creep = 0.1))
-  # use log transformation
-  nls.model2 <- nls(log(mean.f) ~ log((1 + creep * (year - min(plaice$year[!is.na(plaice$f_scaled)]))) * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[plaice$year == 1991])),
-                    data = plaice, start = c(qr0 = 2, creep = 2),
-                    trace = TRUE)
+  model <- nls.model1
+  x11()
+  plot(model)  # --> no trend in resid.s, it seems
+  ad.test(resid(model))
+  cvm.test(resid(model))  # --> resid.s normally distributed
+  acf(resid(model))  # --> resid.s autocorrelated
+  message(paste0('R2: ',   # calculate R2
+                 round(digits = 3, x = cor.test(predict(model), plaice$mean.f,
+                                                method = 'pearson')$estimate ^2)))
+  par(mfrow=c(2,2))
+  # resids vs predictor
+  plot(resid(model) ~ plaice$ssb)
+  plot(resid(model) ~ plaice$year)
+  plot(resid(model) ~ plaice$mean.f)
+  plot(resid(model), type = 'histogram')
+  
+  summary(model)  # only QR0 sig, and close to 1
+  dev.off()
+  
+  
   # without TC: Ft = ft QRo / [1 + (QRo - 1) Bt / Bo]
   # Ft = ft QRo / [1 + (QRo - 1) Bt / Bo] ;
-  nls.model3 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[plaice$year == 1991]),
+  nls.model3 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
                     data = plaice, start = c(qr0 = 2))
-  # plot obs vs pred
-  qr0 <- 1.038
-  creep <- 0
-  plaice$pred_f <- c((1 + creep * (plaice$year - min(plaice$year[!is.na(plaice$f_scaled)])) ) * plaice$f_scaled * qr0 /  (1 + (qr0 - 1) * 
-                                                                                                             plaice$ssb / plaice$ssb[plaice$year == 1991]))
-  plot(plaice$pred_f ~ plaice$mean.f,
-       main = paste0('R² = ', round(digits = 3, cor.test(plaice$pred_f, plaice$mean.f, method = 'pearson')$estimate ^2))  )
-  abline(a = 0, b = 1, col = 'red')
-  # which model is better?
+  model <- nls.model3
+  # --> resid.s normally distriibuted, but autocorrelated (analysis not shown)
+  summary(model)  # --> QR0 sig
+
+    # which model is better?
   AIC(nls.model1, nls.model3)
-  
-  # --> QR0 significant, but not largely different from 1.
-  #   > As comparison, GAM says that ssb has no sig influence.
+  anova(nls.model3, nls.model1)  # --> model with insig term removed is better, but not sig so
   
   
-  # (7.2) PLE vs BEL: nls Mechanistic model  ------------------------------------
+# (7.1.2) F_sol / F_ple to determine sole effect ----
+
+  x11()
+  par(mfrow=c(2,1))
+  plot(plaice$fpue_nld ~ plaice$year)
+  plot(x = plaice$year, y = plaice$mean.f_sol / plaice$mean.f)
   
+  nls.model4 <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) *
+                 f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
+                 ple_effect * (mean.f_sol / mean.f),
+                data = plaice, start = c(qr0 = 2, creep = 0.1, ple_effect = 0))
+  model <- nls.model4
+  # --> DIAGNOSTICS:
+  # --> only qr0 sig
+  # --> resid.s normally distr., but autocorrealted
+  AIC(nls.model4, nls.model3)
+  anova(nls.model4, nls.model3)  # --> model better without ple effect, but not sig so.
+  dev.off()
+  
+  
+  
+# (7.2) PLE vs BEL: nls Mechanistic model  ------------------------------------
+  
+  plaice <- plaice_backup
   # for BEL, create scaled effort f = F0 (efforts scaled so base q0=1; by scaling effort of fleet relative F at t0, i.e. 1991)
   plaice$f_scaled <- plaice$mean.f[plaice$year == 1991] * (plaice$effort_bel_rel_2003 / plaice$effort_bel_rel_2003[plaice$year == 1991])  # scale effort to F1991
   
