@@ -751,16 +751,7 @@ if(prior2003 == TRUE) {
   # 3.1.2: Adress autocorrelated residuals in nls.
   plot(resid(nls.model3) ~ dat$year[dat$year>1977])
   
-  
-  # plot obs vs pred
-  qr0 <- 1.9167
-  creep <- 0
-  dat$pred_f <- c((1 + creep * (dat$year - min(dat$year[!is.na(dat$f_scaled)])) ) * dat$f_scaled * qr0 /  (1 + (qr0 - 1) * 
-                          dat$ssb / dat$ssb[dat$year == 1991]))
-  plot(dat$pred_f ~ dat$mean.f,
-       main = paste0('R² = ', round(digits = 3, cor.test(dat$pred_f, dat$mean.f, method = 'pearson')$estimate ^2))  )
-  abline(a = 0, b = 1, col = 'red')
-  # which model is better?
+
   AIC(nls.model1, nls.model3)
   dev.off()
   
@@ -806,6 +797,7 @@ if(prior2003 == TRUE) {
                 qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
                 ple_effect * (mean.f_ple / mean.f),
                data = dat_with_ple, start = c(qr0 = 2, creep = 0.1, ple_effect = 0))
+   nls.model4 <- model
    
    plot(model)  # there is still some trend in the residuals
    par(mfrow=c(2,1))
@@ -830,7 +822,81 @@ if(prior2003 == TRUE) {
    
    dev.off()
    
+# (3.4) model PLE_effect as  Fple / (Fsol + Fple)
    
+   #  Modelling the effect of preference of one of the two flatfish species over
+   #  the other by F_sol / F_ple or vice versa bears the danger of loosing the
+   #  intended meaning when F of both fleets simultaneously decrease through different
+   #  mechanisms, such as in more recent years, when Fsol decreased through stock
+   #  conservation efforts and Fple through the large increase of the stock [elaborate!].
+    x11()
+   par(mfrow=c(3,1))
+   plot(x = dat_with_ple$year, y = dat_with_ple$mean.f)
+   plot(x = dat_with_ple$year, y = dat_with_ple$mean.f_ple)
+   plot(x = dat_with_ple$year, y = dat_with_ple$mean.f_ple / dat_with_ple$mean.f)
+    dev.off()
+   #  To overcome this limitations, we scaled the 'wantedness' of sole relative
+   #  to the total 'wantedness' of both species: Fsol / (Fsol + Fple) . That
+   #  approach would sustain the preference for one species even if both Fs
+   #  decline or increase simultaneously.
+    x11()
+   plot(x = dat_with_ple$year, y = dat_with_ple$mean.f/ (dat_with_ple$mean.f + dat_with_ple$mean.f_ple) )
+   plot(x = dat_with_ple$year, y = dat_with_ple$mean.f)
+   plot(y = dat_with_ple$mean.f, x = dat_with_ple$mean.f/ (dat_with_ple$mean.f + dat_with_ple$mean.f_ple))
+    dev.off()
+    cor.test(y = dat_with_ple$mean.f, x = dat_with_ple$mean.f/ (dat_with_ple$mean.f + dat_with_ple$mean.f_ple))
+   #  Include that in the model:
+    model <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) * f_scaled *
+                   qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
+                   wantedness * mean.f / (mean.f_ple + mean.f),
+                 data = dat_with_ple, start = c(qr0 = 2, creep = 0.1, wantedness = 0))
+    summary(model)
+    # creep not sig., remove that term
+    model <- nls(mean.f ~ f_scaled *
+                   qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
+                   wantedness * mean.f / (mean.f_ple + mean.f),
+                 data = dat_with_ple, start = c(qr0 = 2, wantedness = 0))
+    summary(model)  # --> both terms sig., wantedness positive, as expected
+    nls.model5 <- model
+    AIC(nls.model5, nls.model4)  # --> Fsol/(Fsol + Fple)  much better than Fple/Fsol
+    anova(nls.model4, nls.model5)
+    # DIAGNOSTICS:
+    # R² 0.743
+    cor.test(predict(model), dat_with_ple$mean.f)
+    # Residuals vs predicted values with no super-obvious trend, but sig. cor.
+    # Residuals normally distributed, but autocorrelated.
+    
+# (3.5) Diagnostic plots of final model ----
+   x11()  # RESIDUALS DIAGNOSTIC PLOTS
+   par(mfrow=c(2,3))
+   plot(model)
+   plot(predict(model) ~ dat_with_ple$mean.f,
+        main = paste0('R² = ', round(digits = 3, cor.test(predict(model), dat_with_ple$mean.f, method = 'pearson')$estimate ^2))  )
+   abline(a = 0, b = 1, lty = 2)
+   acf(resid(model)) 
+   hist(x = resid(model))
+   plot(resid(model) ~ predict(model))
+   abline(0,0, lty = 2)
+   plot(resid(model) ~ dat_with_ple$year, type = 'l')
+   abline(0,0, lty = 2)
+   plot(resid(model) ~ dat_with_ple$mean.f)
+   abline(0,0, lty = 2)
+   
+   ad.test(resid(model))  # are residuals normally distributed?
+   cvm.test(resid(model))  
+   
+      # do residuals correlate with predicted values?
+   ad.test(predict(model))
+   cvm.test(predict(model))  # ... if both res and pred normal, use pearson
+   cor.test(resid(model), predict(model), method = 'pearson')
+   
+   summary(model) 
+   dev.off()
+   
+  res <- resid(model)
+  n <- length(res)
+  acf_model <- lm(res[-n] ~ res[-1])
+  summary(acf_model)
   
   
 # (4) GAM for sole vs BEL BT ---------------------------------------------------------------------
@@ -949,7 +1015,7 @@ if(prior2003 == TRUE) {
         AIC(model, nls.model4)
         anova(model, nls.model4)  # --> slight, but insig improvement without insig term
   
-  
+
 # (5) What if I GAM-modelled F ~ f + ssb + year? ------------------------------
   
   # check distribution of response var
