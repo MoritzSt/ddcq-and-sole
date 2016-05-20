@@ -822,7 +822,7 @@ if(prior2003 == TRUE) {
    
    dev.off()
    
-# (3.4) model PLE_effect as  Fple / (Fsol + Fple)
+# (3.4) model PLE_effect as  Fple / (Fsol + Fple) ----
    
    #  Modelling the effect of preference of one of the two flatfish species over
    #  the other by F_sol / F_ple or vice versa bears the danger of loosing the
@@ -1014,7 +1014,55 @@ if(prior2003 == TRUE) {
   # --> Both terms significant, residuals normally distr., but autocorrelated
         AIC(model, nls.model4)
         anova(model, nls.model4)  # --> slight, but insig improvement without insig term
-  
+  nls.model4 <- model
+
+
+# (4.3) SOL vs BEL: wantedness as Fsol/(Fsol+Fple) ----
+        model <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) * f_scaled *
+                       qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
+                       wantedness * mean.f / (mean.f_ple + mean.f),
+                     data = dat_with_ple, start = c(qr0 = 2, creep = 0.1, wantedness = 0))
+        summary(model)
+       # all terms sig, wantedness positive, as expected, creep neg. though
+        nls.model5 <- model
+        AIC(nls.model5, nls.model4)  # --> Fsol/(Fsol + Fple)  much better than Fple/Fsol
+        anova(nls.model4, nls.model5)
+        # DIAGNOSTICS:
+        # R² 0.265
+        cor.test(predict(model), dat_with_ple$mean.f)
+        
+# (4.4) Diagnostics of final model
+        x11()  # RESIDUALS DIAGNOSTIC PLOTS
+        par(mfrow=c(2,3))
+        plot(model)
+        plot(predict(model) ~ dat_with_ple$mean.f,
+             main = paste0('R² = ', round(digits = 3, cor.test(predict(model), dat_with_ple$mean.f, method = 'pearson')$estimate ^2))  )
+        abline(a = 0, b = 1, lty = 2)
+        acf(resid(model)) 
+        hist(x = resid(model))
+        plot(resid(model) ~ predict(model))
+        abline(0,0, lty = 2)
+        plot(resid(model) ~ dat_with_ple$year, type = 'l')
+        abline(0,0, lty = 2)
+        plot(resid(model) ~ dat_with_ple$mean.f)
+        abline(0,0, lty = 2)
+        
+        ad.test(resid(model))  # are residuals normally distributed?
+        cvm.test(resid(model))  
+        
+        # do residuals correlate with predicted values?
+        ad.test(predict(model))
+        cvm.test(predict(model))  # ... if both res and pred normal, use pearson
+        cor.test(resid(model), predict(model), method = 'pearson')
+        
+        summary(model) 
+        dev.off()
+        
+        res <- resid(model)
+        n <- length(res)
+        acf_model <- lm(res[-n] ~ res[-1])
+        summary(acf_model)
+        
 
 # (5) What if I GAM-modelled F ~ f + ssb + year? ------------------------------
   
