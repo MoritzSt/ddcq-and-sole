@@ -14,24 +14,27 @@
 
   # Do you want to include effort data of dutch beam trawl prior 2003 from WGSAM05?
   prior2003 <- TRUE
-  # working_directory <- 'D:\\workfolder\\TI-2016\\ddcq\\ddcq-and-sole-master\\ddcq-and-sole-master'
-   working_directory <- 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole'
+   working_directory <- 'D:\\workfolder\\TI-2016\\ddcq\\ddcq-and-sole-master\\ddcq-and-sole-master'
+  # working_directory <- 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole'
 
+   library(reshape2)
+   library(sNoSeR)
+   library(ggplot2)
+   library(dplyr)
+   library(magrittr)
+   library(nortest)
+   
 # (1) Is FPUE of sole constant or does it change with time and/or abundance?----
 
   # check catch composition of sole in STECF landings. Get data at
       # https://stecf.jrc.ec.europa.eu/ewg1413
       # use snose package to load and convert STECF file to long format
-  library(reshape2)
-  library(sNoSeR)
   file_location_stecf_landings <- paste(working_directory, 'input', 'STECF 2014', 'Landings_by_ICES_rectangle.csv', sep = '\\')
     # it was: 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\input data\\STECF 2014\\Landings_by_ICES_rectangle.csv'
   landings <- get_stecf_landings_per_rectangle(file = file_location_stecf_landings, nose_only = T, deep = F, fdf = F, format_long = T)
   landings_backup <- landings
 
     # calculate contribution of sole to total catch per fleet, rectangle and year
-  library(dplyr)
-  library(magrittr)
 
         #  ## For testing, specify input values for sNoSeR function aggr_share_of():
         #  data <- landings
@@ -44,7 +47,6 @@
   if(max(shares$share, na.rm = TRUE) != 1)  {warnings('Shares calculation failed!')}
 
   # plot share of sole in total catch and seek a pattern
-  library(ggplot2)
   qplot(data = shares[shares$share > 0.1,], share) + geom_histogram() + facet_wrap(~ reg_gear_cod, scales = 'free')
   qplot(data = shares[shares$reg_gear_cod == 'BT2',], share) + geom_histogram(binwidth=0.1) + facet_grid( vessel_length ~ country, scales = 'free')  # experiment with binwidth!
   # --> over 15m appears to be the interesting vessel length,
@@ -248,19 +250,22 @@ if(prior2003 == TRUE) {
 # # (1.3) Add biomass info from assessment --------------------------------
   
   # Read B and F (total and per age class) from sole assessment (WGNSSK 2015).
-  sole_total <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\Sole in Subarea IV.csv')
+  sole_total <- read.csv(file = paste0(working_directory, '\\input\\Sole in Subarea IV.csv'))
+ # D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\Sole in Subarea IV.csv
   names(sole_total) <- tolower(names(sole_total))
   sole_total$year <- as.integer(as.character(sole_total$year))
   sole_total <- sole_total[!sole_total$year == 2015,]
   sole_total <- sole_total[!is.na(sole_total$year),]
   
-  sole_weight_at_age <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\WGNSSK15-Table 10.2.5. North Sea sole. Stock weight at age (kg).csv', sep = ';')
+  sole_weight_at_age <- read.csv(file = paste0(working_directory, '\\input\\WGNSSK15-Table 10.2.5. North Sea sole. Stock weight at age (kg).csv'), sep = ';')
+#'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\WGNSSK15-Table 10.2.5. North Sea sole. Stock weight at age (kg).csv', sep = ';')
   names(sole_weight_at_age) <- c('year',paste( c(1:10)))
   sole_weight_at_age <- melt(data = sole_weight_at_age, id.vars = 'year')
   sole_weight_at_age <- rename(.data = sole_weight_at_age, age = variable, weight_at_age = value)
   sole_weight_at_age$age <- as.integer(as.character(sole_weight_at_age$age))
   
-  sole_number_at_age <- read.csv(file = 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\WGNSSK15-Table 10.4.1. North Sea sole. Stock numbers (thousands).csv', sep = ';')
+  sole_number_at_age <- read.csv(file = paste0(working_directory, '\\input\\WGNSSK15-Table 10.4.1. North Sea sole. Stock numbers (thousands).csv'), sep = ';')
+    # 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole\\input\\WGNSSK15-Table 10.4.1. North Sea sole. Stock numbers (thousands).csv', sep = ';')
   names(sole_number_at_age) <- c('year',paste( c(1:10)))
   sole_number_at_age <- melt(data = sole_number_at_age, id.vars = 'year')
   sole_number_at_age <- rename(.data = sole_number_at_age, age = variable, number_at_age = value)
@@ -822,7 +827,7 @@ if(prior2003 == TRUE) {
    
    dev.off()
    
-# (3.4) model PLE_effect as  Fple / (Fsol + Fple) ----
+# (3.4) model wantedness as  Fple / (Fsol + Fple) ----
    
    #  Modelling the effect of preference of one of the two flatfish species over
    #  the other by F_sol / F_ple or vice versa bears the danger of loosing the
@@ -863,32 +868,80 @@ if(prior2003 == TRUE) {
     # DIAGNOSTICS:
     # R² 0.743
     cor.test(predict(model), dat_with_ple$mean.f)
-    # Residuals vs predicted values with no super-obvious trend, but sig. cor.
+    # Diagnostics and their plots (code below) show:
+    # Residuals vs predicted values could be interpreted as trend,
+    #   sig. with pearson, insig with spearman, and relationship is
+    #   not  necessarily linear (gam shows spline, however very subtle).
     # Residuals normally distributed, but autocorrelated.
+    # Stochastic components of the model are independent (Wald-Wolfowitz' runs test insig).
+    
     
 # (3.5) Diagnostic plots of final model ----
    x11()  # RESIDUALS DIAGNOSTIC PLOTS
-   par(mfrow=c(2,3))
-   plot(model)
+   par(mfrow=c(2,4))
+   qthing <- qqnorm(resid(model))
+   plot(qthing$y ~ qthing$x , xlab = 'Theoretical quantiles', ylab = 'Sample quantiles')
+   qqline(resid(model))
+   hist(x = resid(model))
+   #plot(model)
    plot(predict(model) ~ dat_with_ple$mean.f,
         main = paste0('R² = ', round(digits = 3, cor.test(predict(model), dat_with_ple$mean.f, method = 'pearson')$estimate ^2))  )
    abline(a = 0, b = 1, lty = 2)
-   acf(resid(model)) 
-   hist(x = resid(model))
-   plot(resid(model) ~ predict(model))
-   abline(0,0, lty = 2)
-   plot(resid(model) ~ dat_with_ple$year, type = 'l')
+   plot(resid(model) ~ predict(model),
+        main = paste0('cor: p = ', round(digits = 3,
+          cor.test(resid(model), predict(model), method = 'spearman')$p.value)))
    abline(0,0, lty = 2)
    plot(resid(model) ~ dat_with_ple$mean.f)
    abline(0,0, lty = 2)
+   plot(resid(model) ~ dat_with_ple$year, type = 'l')
+   abline(0,0, lty = 2)
+   acf(resid(model))
+   
+   #  One could also consider testing effect of all lag
+   #    autocorrelations as a group using the LJUNG-BOX test. ----
+   # https://stackoverflow.com/questions/24769815/what-is-the-equivalent-to-statas-portmanteau-q-test-for-white-noise-in-r
+   #  Here, p tells us if we have evidence to reject the null hypothesis that
+   #    the error terms are uncorrelated.
+   q.test <- function (x) {
+     Box.test(x, type="Ljung-Box", lag=min(length(x)/2-2, 40))
+   }
+   q.test(resid(model))
+   min(length(resid(model))/2-2, 40)
+   Box.test(x = resid(model), lag = 16, type = 'Ljung-Box')
+   #  create and plot series of Ljung-Box tests' p-values
+   #    along sequence of possible time lags
+      ljung_results <- c(0,0)
+   for(i in seq_along(resid(model))) {
+     index <- Box.test(resid(model), type="Ljung-Box", lag= i )
+     index <- index$p.value
+     ljung_results <- rbind(ljung_results, c(i, index))
+   }
+      ljung_results <- as.data.frame(ljung_results)
+      x11()
+      plot(ljung_results[,2] ~ ljung_results[,1],
+           xlab = 'lag', ylab = 'P-value', main = 'Ljung-Box test statistics')
+      abline(h = 0.05)
+    
+   # perform runs test upon the independence of a sequence of random variables
+   install.packages('leaps')
+   install.packages("TSA")
+   library(TSA)
+   runs(resid(model))
+   
    
    ad.test(resid(model))  # are residuals normally distributed?
    cvm.test(resid(model))  
    
       # do residuals correlate with predicted values?
    ad.test(predict(model))
-   cvm.test(predict(model))  # ... if both res and pred normal, use pearson
-   cor.test(resid(model), predict(model), method = 'pearson')
+   cvm.test(predict(model))  # are the predicted values normally distributed?
+   x11()  # is the relationship resid() ~ predicted()  fairly linear?
+   plot(resid(model) ~ predict(model))
+   dev.off()
+   tt <- gam(resid(model) ~ s(predict(model)))
+   dev.off()
+   cor.test(resid(model), predict(model), method = 'spearman')
+   summary(lm(resid(model) ~ predict(model)))  # ...can also be tested
    
    summary(model) 
    dev.off()
