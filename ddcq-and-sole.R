@@ -10,7 +10,7 @@
 # ♥
 
 # Push from Home with
-# >  git push https:/github.com/moritzst/ddcq-and-sole HEAD:master
+# >  git push https://github.com/moritzst/ddcq-and-sole HEAD:master
 
 # (0) define baselines of analysis ----------------------------------------
 
@@ -1090,6 +1090,8 @@ if(prior2003 == TRUE) {
         nls.model5 <- model
         AIC(nls.model5, nls.model4)  # --> Fsol/(Fsol + Fple)  much better than Fple/Fsol
         anova(nls.model4, nls.model5)
+        AIC(nls.model5, nls.model3)
+        anova(nls.model5, nls.model3)  # --> wantedness helps a lot oder simplest model
         # DIAGNOSTICS:
         # R² 0.265
         cor.test(predict(model), dat_with_ple$mean.f)
