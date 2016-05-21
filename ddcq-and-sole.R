@@ -9,6 +9,8 @@
 # creep) or are dependent on abundance (i.e. SSB or TSB, which indicates ddcq).
 # ♥
 
+# Push from Home with
+# >  git push https:/github.com/moritzst/ddcq-and-sole HEAD:master
 
 # (0) define baselines of analysis ----------------------------------------
 
@@ -865,6 +867,8 @@ if(prior2003 == TRUE) {
     nls.model5 <- model
     AIC(nls.model5, nls.model4)  # --> Fsol/(Fsol + Fple)  much better than Fple/Fsol
     anova(nls.model4, nls.model5)
+    AIC(model, nls.model3)
+    anova(model, nls.model3)  # --> sig better than without Fple consideration
     # DIAGNOSTICS:
     # R² 0.743
     cor.test(predict(model), dat_with_ple$mean.f)
@@ -878,24 +882,28 @@ if(prior2003 == TRUE) {
     
 # (3.5) Diagnostic plots of final model ----
    x11()  # RESIDUALS DIAGNOSTIC PLOTS
-   par(mfrow=c(2,4))
+   par(mfrow=c(4,2))
    qthing <- qqnorm(resid(model))
-   plot(qthing$y ~ qthing$x , xlab = 'Theoretical quantiles', ylab = 'Sample quantiles')
-   qqline(resid(model))
-   hist(x = resid(model))
+   plot(qthing$y ~ qthing$x , xlab = 'Theoretical quantiles', ylab = 'Sample quantiles',
+        main = 'Normal Q-Q plot')
+   qqline(resid(model), col = 'red')
+   hist(x = resid(model), main = 'Histogram of residuals')
    #plot(model)
-   plot(predict(model) ~ dat_with_ple$mean.f,
-        main = paste0('R² = ', round(digits = 3, cor.test(predict(model), dat_with_ple$mean.f, method = 'pearson')$estimate ^2))  )
+   plot(predict(model) ~ dat_with_ple$mean.f, xlab = 'Fsol',
+        main = paste0('Predicted against observed: R² = ', round(digits = 3,
+        cor.test(predict(model), dat_with_ple$mean.f, method = 'pearson')$estimate ^2)))
    abline(a = 0, b = 1, lty = 2)
    plot(resid(model) ~ predict(model),
-        main = paste0('cor: p = ', round(digits = 3,
+        main = paste0('Residuals against fitted values: p = ', round(digits = 2,
           cor.test(resid(model), predict(model), method = 'spearman')$p.value)))
    abline(0,0, lty = 2)
-   plot(resid(model) ~ dat_with_ple$mean.f)
+   plot(resid(model) ~ dat_with_ple$mean.f, main = 'Residuals against response var',
+        xlab = 'Fsol')
    abline(0,0, lty = 2)
-   plot(resid(model) ~ dat_with_ple$year, type = 'l')
+   plot(resid(model) ~ dat_with_ple$year, type = 'both',
+        main = 'Time series of residuals', xlab = 'Year')
    abline(0,0, lty = 2)
-   acf(resid(model))
+   acf(resid(model), main = 'ACF of residuals')
    
    #  One could also consider testing effect of all lag
    #    autocorrelations as a group using the LJUNG-BOX test. ----
@@ -921,8 +929,10 @@ if(prior2003 == TRUE) {
       plot(ljung_results[,2] ~ ljung_results[,1],
            xlab = 'lag', ylab = 'P-value', main = 'Ljung-Box test statistics')
       abline(h = 0.05)
+      dev.off()
     
    # perform runs test upon the independence of a sequence of random variables
+      # runs test is also called Wald-Wolfowitz-Test
    install.packages('leaps')
    install.packages("TSA")
    library(TSA)
