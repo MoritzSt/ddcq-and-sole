@@ -16,8 +16,8 @@
 
   # Do you want to include effort data of dutch beam trawl prior 2003 from WGSAM05?
   prior2003 <- TRUE
-   working_directory <- 'D:\\workfolder\\TI-2016\\ddcq\\ddcq-and-sole-master\\ddcq-and-sole-master'
-  # working_directory <- 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole'
+  # working_directory <- 'D:\\workfolder\\TI-2016\\ddcq\\ddcq-and-sole-master\\ddcq-and-sole-master'
+   working_directory <- 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole'
 
    library(reshape2)
    library(sNoSeR)
@@ -881,9 +881,9 @@ if(prior2003 == TRUE) {
     
     
 # (3.5) Diagnostic plots of final model ----
-   x11()  # RESIDUALS DIAGNOSTIC PLOTS
+   qthing <- qqnorm(resid(model))  # RESIDUALS DIAGNOSTIC PLOTS
+   x11()
    par(mfrow=c(4,2))
-   qthing <- qqnorm(resid(model))
    plot(qthing$y ~ qthing$x , xlab = 'Theoretical quantiles', ylab = 'Sample quantiles',
         main = 'Normal Q-Q plot')
    qqline(resid(model), col = 'red')
@@ -925,7 +925,7 @@ if(prior2003 == TRUE) {
      ljung_results <- rbind(ljung_results, c(i, index))
    }
       ljung_results <- as.data.frame(ljung_results)
-      x11()
+
       plot(ljung_results[,2] ~ ljung_results[,1],
            xlab = 'lag', ylab = 'P-value', main = 'Ljung-Box test statistics')
       abline(h = 0.05)
@@ -933,8 +933,6 @@ if(prior2003 == TRUE) {
     
    # perform runs test upon the independence of a sequence of random variables
       # runs test is also called Wald-Wolfowitz-Test
-   install.packages('leaps')
-   install.packages("TSA")
    library(TSA)
    runs(resid(model))
    
@@ -1097,32 +1095,8 @@ if(prior2003 == TRUE) {
         cor.test(predict(model), dat_with_ple$mean.f)
         
 # (4.4) Diagnostics of final model
-        x11()  # RESIDUALS DIAGNOSTIC PLOTS
-        par(mfrow=c(2,3))
-        plot(model)
-        plot(predict(model) ~ dat_with_ple$mean.f,
-             main = paste0('R² = ', round(digits = 3, cor.test(predict(model), dat_with_ple$mean.f, method = 'pearson')$estimate ^2))  )
-        abline(a = 0, b = 1, lty = 2)
-        acf(resid(model)) 
-        hist(x = resid(model))
-        plot(resid(model) ~ predict(model))
-        abline(0,0, lty = 2)
-        plot(resid(model) ~ dat_with_ple$year, type = 'l')
-        abline(0,0, lty = 2)
-        plot(resid(model) ~ dat_with_ple$mean.f)
-        abline(0,0, lty = 2)
-        
-        ad.test(resid(model))  # are residuals normally distributed?
-        cvm.test(resid(model))  
-        
-        # do residuals correlate with predicted values?
-        ad.test(predict(model))
-        cvm.test(predict(model))  # ... if both res and pred normal, use pearson
-        cor.test(resid(model), predict(model), method = 'pearson')
-        
-        summary(model) 
-        dev.off()
-        
+        # ... see plotting routine at
+        #     3.5!
         res <- resid(model)
         n <- length(res)
         acf_model <- lm(res[-n] ~ res[-1])
