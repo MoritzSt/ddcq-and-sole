@@ -881,7 +881,10 @@ if(prior2003 == TRUE) {
     
     
 # (3.5) Diagnostic plots of final model ----
-   qthing <- qqnorm(resid(model))  # RESIDUALS DIAGNOSTIC PLOTS
+   dataset <- dat_with_ple  # select dataset of the current analysis here, e.g. 'plaice' or 'dat_with_ple'
+    x11()
+    qthing <- qqnorm(resid(model))  # just to create qqnorm data
+    dev.off()
    x11()
    par(mfrow=c(4,2))
    plot(qthing$y ~ qthing$x , xlab = 'Theoretical quantiles', ylab = 'Sample quantiles',
@@ -889,18 +892,18 @@ if(prior2003 == TRUE) {
    qqline(resid(model), col = 'red')
    hist(x = resid(model), main = 'Histogram of residuals')
    #plot(model)
-   plot(predict(model) ~ dat_with_ple$mean.f, xlab = 'Fsol',
+   plot(predict(model) ~ dataset$mean.f, xlab = 'Fsol',
         main = paste0('Predicted against observed: R² = ', round(digits = 3,
-        cor.test(predict(model), dat_with_ple$mean.f, method = 'pearson')$estimate ^2)))
+        cor.test(predict(model), dataset$mean.f, method = 'pearson')$estimate ^2)))
    abline(a = 0, b = 1, lty = 2)
    plot(resid(model) ~ predict(model),
         main = paste0('Residuals against fitted values: p = ', round(digits = 2,
           cor.test(resid(model), predict(model), method = 'spearman')$p.value)))
    abline(0,0, lty = 2)
-   plot(resid(model) ~ dat_with_ple$mean.f, main = 'Residuals against response var',
+   plot(resid(model) ~ dataset$mean.f, main = 'Residuals against response var',
         xlab = 'Fsol')
    abline(0,0, lty = 2)
-   plot(resid(model) ~ dat_with_ple$year, type = 'both',
+   plot(resid(model) ~ dataset$year, type = 'both',
         main = 'Time series of residuals', xlab = 'Year')
    abline(0,0, lty = 2)
    acf(resid(model), main = 'ACF of residuals')
@@ -928,7 +931,7 @@ if(prior2003 == TRUE) {
 
       plot(ljung_results[,2] ~ ljung_results[,1],
            xlab = 'lag', ylab = 'P-value', main = 'Ljung-Box test statistics')
-      abline(h = 0.05)
+      abline(h = 0.05, lty = 2)
       dev.off()
     
    # perform runs test upon the independence of a sequence of random variables
@@ -1094,7 +1097,15 @@ if(prior2003 == TRUE) {
         # R² 0.265
         cor.test(predict(model), dat_with_ple$mean.f)
         
-# (4.4) Diagnostics of final model
+        
+# (4.4) Remove 'creep' from SOL vs BEL, as else it is negative
+        model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
+                       wantedness * mean.f / (mean.f_ple + mean.f),
+                     data = dat_with_ple, start = c(qr0 = 2,wantedness = 0))
+        summary(model)
+        
+        
+# (4.5) Diagnostics of final model
         # ... see plotting routine at
         #     3.5!
         res <- resid(model)
@@ -1304,7 +1315,7 @@ if(prior2003 == TRUE) {
   nls.model3 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
                     data = plaice, start = c(qr0 = 2))
   model <- nls.model3
-  # --> resid.s normally distriibuted, but autocorrelated (analysis not shown)
+  # --> resid.s normally distributed, but autocorrelated (analysis not shown)
   summary(model)  # --> QR0 sig
 
     # which model is better?
@@ -1331,6 +1342,32 @@ if(prior2003 == TRUE) {
   AIC(nls.model4, nls.model3)
   anova(nls.model4, nls.model3)  # --> model better without ple effect, but not sig so.
   dev.off()
+  
+  
+# (7.1.3) 'wantedness' as Fple / (Fple + Fsol) ----
+  model <- nls(mean.f ~ (1 + creep * (year - min(plaice$year[!is.na(plaice$f_scaled)])))
+               * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
+                 wantedness * mean.f / (mean.f + mean.f_sol),
+               data = plaice, start = c(qr0 = 2, creep = 0.1, wantedness = 0))
+  summary(model)
+  # First check on residuals & predictions
+  ad.test(resid(model))
+  cvm.test(resid(model))  # --> normally distributed
+  ad.test(predict(model))
+  cvm.test(predict(model)) # --> predicted values not normally distributed --> spearman
+  
+
+# (7.1.4) Remove 'creep' as it would be negative ----
+  model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
+                 wantedness * mean.f / (mean.f + mean.f_sol),
+               data = plaice, start = c(qr0 = 2, wantedness = 0))
+  summary(model)
+  
+  
+# (7.1.5) Only SSB significant in PLE vs NLD
+  model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]),
+               data = plaice, start = c(qr0 = 2))
+  summary(model)
   
   
 # (7.2) PLE vs BEL: nls Mechanistic model  ------------------------------------
@@ -1387,4 +1424,85 @@ if(prior2003 == TRUE) {
   # --> (diagnostic plots not shown)
   # [!!! TO DO ]
 
-  #
+  
+# (7.3) Plaice diagnostic plots of final model ----
+    dataset <- plaice # select dataset of the current analysis here, e.g. 'plaice' or 'dat_with_ple'
+  x11()
+  qthing <- qqnorm(resid(model))  # just to create qqnorm data
+  dev.off()
+  x11()
+  par(mfrow=c(4,2))
+  plot(qthing$y ~ qthing$x , xlab = 'Theoretical quantiles', ylab = 'Sample quantiles',
+       main = 'Normal Q-Q plot')
+  qqline(resid(model), col = 'red')
+  hist(x = resid(model), main = 'Histogram of residuals')
+  #plot(model)
+  plot(predict(model) ~ dataset$mean.f, xlab = 'Fple',
+       main = paste0('Predicted against observed: R² = ', round(digits = 3,
+                                                                cor.test(predict(model), dataset$mean.f, method = 'pearson')$estimate ^2)))
+  abline(a = 0, b = 1, lty = 2)
+  plot(resid(model) ~ predict(model),
+       main = paste0('Residuals against fitted values: p = ', round(digits = 2,
+                                                                    cor.test(resid(model), predict(model), method = 'spearman')$p.value)))
+  abline(0,0, lty = 2)
+  plot(resid(model) ~ dataset$mean.f, main = 'Residuals against response var',
+       xlab = 'Fple')
+  abline(0,0, lty = 2)
+  plot(resid(model) ~ dataset$year, type = 'both',
+       main = 'Time series of residuals', xlab = 'Year')
+  abline(0,0, lty = 2)
+  acf(resid(model), main = 'ACF of residuals')
+  
+  #  One could also consider testing effect of all lag
+  #    autocorrelations as a group using the LJUNG-BOX test. ----
+  # https://stackoverflow.com/questions/24769815/what-is-the-equivalent-to-statas-portmanteau-q-test-for-white-noise-in-r
+  #  Here, p tells us if we have evidence to reject the null hypothesis that
+  #    the error terms are uncorrelated.
+  q.test <- function (x) {
+    Box.test(x, type="Ljung-Box", lag=min(length(x)/2-2, 40))
+  }
+  q.test(resid(model))
+  min(length(resid(model))/2-2, 40)
+  Box.test(x = resid(model), lag = 16, type = 'Ljung-Box')
+  #  create and plot series of Ljung-Box tests' p-values
+  #    along sequence of possible time lags
+  ljung_results <- c(0,0)
+  for(i in seq_along(resid(model))) {
+    index <- Box.test(resid(model), type="Ljung-Box", lag= i )
+    index <- index$p.value
+    ljung_results <- rbind(ljung_results, c(i, index))
+  }
+  ljung_results <- as.data.frame(ljung_results)
+  
+  plot(ljung_results[,2] ~ ljung_results[,1],
+       xlab = 'lag', ylab = 'P-value', main = 'Ljung-Box test statistics')
+  abline(h = 0.05, lty = 2)
+  dev.off()
+  
+  # perform runs test upon the independence of a sequence of random variables
+  # runs test is also called Wald-Wolfowitz-Test
+  runs(resid(model))
+  
+  
+  ad.test(resid(model))  # are residuals normally distributed?
+  cvm.test(resid(model))  
+  
+  # do residuals correlate with predicted values?
+  ad.test(predict(model))
+  cvm.test(predict(model))  # are the predicted values normally distributed?
+  x11()  # is the relationship resid() ~ predicted()  fairly linear?
+  plot(resid(model) ~ predict(model))
+  dev.off()
+  tt <- gam(resid(model) ~ s(predict(model)))
+  dev.off()
+  cor.test(resid(model), predict(model), method = 'spearman')
+  summary(lm(resid(model) ~ predict(model)))  # ...can also be tested
+  
+  summary(model) 
+  dev.off()
+  
+  res <- resid(model)
+  n <- length(res)
+  acf_model <- lm(res[-n] ~ res[-1])
+  summary(acf_model)
+  
