@@ -1355,12 +1355,21 @@ if(prior2003 == TRUE) {
   cvm.test(resid(model))  # --> normally distributed
   ad.test(predict(model))
   cvm.test(predict(model)) # --> predicted values not normally distributed --> spearman
+  model1_ple_nld <- model
   
+  
+# (7.1.3.X) Force 'creep' positive
+  model <- nls(mean.f ~ (1 + creep * (year - min(plaice$year[!is.na(plaice$f_scaled)])))
+               * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
+                 wantedness * mean.f / (mean.f + mean.f_sol),
+               data = plaice, start = c(qr0 = 2, creep = 0.1, wantedness = 0.1), 
+              lower = c(-9^999,0,-9^999), algorithm = 'port')
 
 # (7.1.4) Remove 'creep' as it would be negative ----
   model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
                  wantedness * mean.f / (mean.f + mean.f_sol),
-               data = plaice, start = c(qr0 = 2, wantedness = 0))
+               data = plaice, start = c(qr0 = 2, wantedness = 0),
+               lower = c(-9^999,0,-9^999), algorithm = 'port')
   summary(model)
   
   
@@ -1368,6 +1377,12 @@ if(prior2003 == TRUE) {
   model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]),
                data = plaice, start = c(qr0 = 2))
   summary(model)
+  model2_ple_nld <- model
+  AIC(model2_ple_nld, model1_ple_nld)
+  anova(model2_ple_nld, model1_ple_nld)
+  anova(model1_ple_nld, model2_ple_nld)
+  #  --> Keeping all terms results in a significantly better model.
+  model <- model1_ple_nld
   
   
 # (7.2) PLE vs BEL: nls Mechanistic model  ------------------------------------
@@ -1426,7 +1441,7 @@ if(prior2003 == TRUE) {
 
   
 # (7.3) Plaice diagnostic plots of final model ----
-    dataset <- plaice # select dataset of the current analysis here, e.g. 'plaice' or 'dat_with_ple'
+  dataset <- plaice # select dataset of the current analysis here, e.g. 'plaice' or 'dat_with_ple'
   x11()
   qthing <- qqnorm(resid(model))  # just to create qqnorm data
   dev.off()
@@ -1454,7 +1469,7 @@ if(prior2003 == TRUE) {
   acf(resid(model), main = 'ACF of residuals')
   
   #  One could also consider testing effect of all lag
-  #    autocorrelations as a group using the LJUNG-BOX test. ----
+  #    autocorrelations as a group using the LJUNG-BOX test.
   # https://stackoverflow.com/questions/24769815/what-is-the-equivalent-to-statas-portmanteau-q-test-for-white-noise-in-r
   #  Here, p tells us if we have evidence to reject the null hypothesis that
   #    the error terms are uncorrelated.
