@@ -1369,7 +1369,7 @@ if(prior2003 == TRUE) {
   model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
                  wantedness * mean.f / (mean.f + mean.f_sol),
                data = plaice, start = c(qr0 = 2, wantedness = 0),
-               lower = c(-9^999,0,-9^999), algorithm = 'port')
+               lower = c(-9^999,-9^999), algorithm = 'port')
   summary(model)
   
   
@@ -1397,30 +1397,6 @@ if(prior2003 == TRUE) {
                     data = plaice, start = c(qr0 = 2, creep = 0.1))
   model <- nls.model1
   
-  x11()  # RESIDUALS DIAGNOSTIC PLOTS
-  par(mfrow=c(2,3))
-  plot(model)  # --> no trend in resid.s, it seems
-  plot(predict(model) ~ plaice$mean.f,
-       main = paste0('R² = ', round(digits = 3, cor.test(predict(model), plaice$mean.f, method = 'pearson')$estimate ^2))  )
-  abline(a = 0, b = 1, col = 'red')
-  acf(resid(model))  # --> resid.s autocorrelated
-  hist(x = resid(model))
-  plot(resid(model) ~ predict(model), col = 'red')
-  abline(0,0, lty = 2)
-  plot(resid(model) ~ plaice$year)
-  abline(0,0, lty = 2)
-  plot(resid(model) ~ plaice$mean.f)
-  abline(0,0, lty = 2)
-  # --> resid.s diagnostics:
-  plot(resid(model))
-  # [!!! TO DO ]
-  
-  ad.test(resid(model))
-  cvm.test(resid(model))  # --> resid.s normally distributed
-  
-  summary(model)  # --> only QR0 sig, but close to 1
-  dev.off()
-  
   
   # nls(PLE vs BEL)  with insig terms removed
   nls.model3 <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat$ssb[dat$year == 1991]),
@@ -1430,15 +1406,39 @@ if(prior2003 == TRUE) {
   # [!!! TO DO ]
   
   
-  # nls(PLE vs BEL)  with sole effect
-  nls.model4 <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) *
-                      f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
-                      ple_effect * (mean.f_sol / mean.f),
-                    data = plaice, start = c(qr0 = 2, creep = 0.1, ple_effect = 0))
-  model <- nls.model4
-  # --> (diagnostic plots not shown)
-  # [!!! TO DO ]
-
+# (7.2.2) Add 'wantedness' or 'preference' as Fple / (Fple + Fsol) ----
+  model <- nls(mean.f ~ (1 + creep * (year - min(plaice$year[!is.na(plaice$f_scaled)]))) * f_scaled *
+                 qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
+                 wantedness * mean.f / (mean.f + mean.f_sol),
+               data = plaice, start = c(qr0 = 2, creep = 0.1, wantedness = 0))
+  model1_ple_bel <- model
+  summary(model)  # --> creep is negative -> force positive
+  
+# (7.2.3) Force 'creep' positive
+  model <- nls(mean.f ~ (1 + creep * (year - min(plaice$year[!is.na(plaice$f_scaled)]))) * f_scaled *
+                 qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
+                 wantedness * mean.f / (mean.f + mean.f_sol),
+               data = plaice, start = c(qr0 = 2, creep = 0.1, wantedness = 0.1),
+               lower = c(-9^999, 0, -9^999), algorithm = 'port')
+  summary(model)  
+  
+  # --> 'creep' insignificant. Remove that term
+  model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
+                 wantedness * mean.f / (mean.f + mean.f_sol),
+               data = plaice, start = c(qr0 = 2, wantedness = 0.1),
+               algorithm = 'port')
+  summary(model) 
+  AIC(model, model1_ple_bel)
+  anova(model, model1_ple_bel)
+  
+  
+  # First check on residuals & predictions
+  ad.test(resid(model))
+  cvm.test(resid(model))  # --> normally distributed
+  ad.test(predict(model))
+  cvm.test(predict(model)) # --> predicted values not normally distributed --> spearman
+  model1_ple_nld <- model
+  
   
 # (7.3) Plaice diagnostic plots of final model ----
   dataset <- plaice # select dataset of the current analysis here, e.g. 'plaice' or 'dat_with_ple'
