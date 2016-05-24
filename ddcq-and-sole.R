@@ -897,8 +897,8 @@ if(prior2003 == TRUE) {
         cor.test(predict(model), dataset$mean.f, method = 'pearson')$estimate ^2)))
    abline(a = 0, b = 1, lty = 2)
    plot(resid(model) ~ predict(model),
-        main = paste0('Residuals against fitted values: p = ', round(digits = 2,
-          cor.test(resid(model), predict(model), method = 'spearman')$p.value)))
+        main = paste0('Residuals against fitted values: p < 0.01 '))#, round(digits = 2,
+         # cor.test(resid(model), predict(model), method = 'spearman')$p.value)))
    abline(0,0, lty = 2)
    plot(resid(model) ~ dataset$mean.f, main = 'Residuals against response var',
         xlab = 'Fsol')
@@ -951,7 +951,7 @@ if(prior2003 == TRUE) {
    dev.off()
    tt <- gam(resid(model) ~ s(predict(model)))
    dev.off()
-   cor.test(resid(model), predict(model), method = 'spearman')
+   cor.test(resid(model), predict(model), method = 'pearson')
    summary(lm(resid(model) ~ predict(model)))  # ...can also be tested
    
    summary(model) 
@@ -1097,8 +1097,25 @@ if(prior2003 == TRUE) {
         # R² 0.265
         cor.test(predict(model), dat_with_ple$mean.f)
         
+  # force 'creep' positive
+        model <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) * f_scaled *
+                       qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
+                       wantedness * mean.f / (mean.f_ple + mean.f),
+                     data = dat_with_ple, start = c(qr0 = 2, creep = 0.1, wantedness = 0),
+                     lower = c(-9^999, 0, -9^999), algorithm = 'port')
+        summary(model)
         
-# (4.4) Remove 'creep' from SOL vs BEL, as else it is negative
+  # remove insig. creep term
+        model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
+                       wantedness * mean.f / (mean.f_ple + mean.f),
+                     data = dat_with_ple, start = c(qr0 = 2, wantedness = 0),
+                     algorithm = 'port')
+        summary(model) 
+        AIC(model, nls.model5)
+        anova(model, nls.model5)
+        
+        
+# (4.4) Remove 'creep' from SOL vs BEL, as else it is negative, without forcing creep positive ----
         model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
                        wantedness * mean.f / (mean.f_ple + mean.f),
                      data = dat_with_ple, start = c(qr0 = 2,wantedness = 0))
@@ -1421,6 +1438,8 @@ if(prior2003 == TRUE) {
                data = plaice, start = c(qr0 = 2, creep = 0.1, wantedness = 0.1),
                lower = c(-9^999, 0, -9^999), algorithm = 'port')
   summary(model)  
+  AIC(model, model1_ple_bel)
+  anova(model, model1_ple_bel)
   
   # --> 'creep' insignificant. Remove that term
   model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
