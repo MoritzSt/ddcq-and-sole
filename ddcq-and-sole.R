@@ -1477,7 +1477,7 @@ if(prior2003 == TRUE) {
   abline(a = 0, b = 1, lty = 2)
   plot(resid(model) ~ predict(model),
        main = paste0('Residuals against fitted values: p = ', round(digits = 2,
-                                                                    cor.test(resid(model), predict(model), method = 'spearman')$p.value)))
+        cor.test(resid(model), predict(model), method = 'spearman')$p.value)))
   abline(0,0, lty = 2)
   plot(resid(model) ~ dataset$mean.f, main = 'Residuals against response var',
        xlab = 'Fple')
