@@ -1402,6 +1402,14 @@ if(prior2003 == TRUE) {
   model <- model1_ple_nld
   
   
+  # compare with direct effort relationship only:
+  model <- nls(mean.f ~ f_scaled * a_factor,
+               data = plaice, start = c(a_factor = 2))
+  summary(model)
+  AIC(model, model2_ple_nld)
+  anova(model, model2_ple_nld)
+  
+  
 # (7.2) PLE vs BEL: nls Mechanistic model  ------------------------------------
   
   plaice <- plaice_backup
@@ -1446,9 +1454,19 @@ if(prior2003 == TRUE) {
                  wantedness * mean.f / (mean.f + mean.f_sol),
                data = plaice, start = c(qr0 = 2, wantedness = 0.1),
                algorithm = 'port')
-  summary(model) 
+  summary(model)
+  model2_ple_bel <- model
   AIC(model, model1_ple_bel)
   anova(model, model1_ple_bel)
+  
+  
+  # compare with direct effort relationship only:
+  model <- nls(mean.f ~ f_scaled * a_factor + wantedness * mean.f / (mean.f + mean.f_sol),
+               data = plaice, start = c(a_factor = 1, wantedness = 0.1), algorithm = 'port')
+  summary(model)
+  AIC(model, model2_ple_bel)
+  anova(model, model2_ple_bel)
+  ## --> Model looks totally different from final model. Residuals of this model not OK.
   
   
   # First check on residuals & predictions
@@ -1456,8 +1474,7 @@ if(prior2003 == TRUE) {
   cvm.test(resid(model))  # --> normally distributed
   ad.test(predict(model))
   cvm.test(predict(model)) # --> predicted values not normally distributed --> spearman
-  model1_ple_nld <- model
-  
+
   
 # (7.3) Plaice diagnostic plots of final model ----
   dataset <- plaice # select dataset of the current analysis here, e.g. 'plaice' or 'dat_with_ple'
