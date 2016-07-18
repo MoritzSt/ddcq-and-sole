@@ -850,6 +850,7 @@ if(prior2003 == TRUE) {
                    dat_with_ple$mean.f[baseyear] / (dat_with_ple$mean.f_ple[baseyear] + dat_with_ple$mean.f[baseyear]  ) ),
                  data = dat_with_ple, start = c(qr0 = 2, creep = 0.1, wantedness = 0))
     summary(model)
+    rm(baseyear)
     
     
 # (3.5) Diagnostic plots of final model ----
@@ -1054,47 +1055,33 @@ if(prior2003 == TRUE) {
 
 
 # (4.3) SOL vs BEL: wantedness as Fsol/(Fsol+Fple) ----
+        baseyear <- which(dat_with_ple$year == 1991)
+        
         model <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) * f_scaled *
                        qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
-                       wantedness * mean.f / (mean.f_ple + mean.f),
+                       wantedness * (mean.f / (mean.f_ple + mean.f) -
+                         dat_with_ple$mean.f[baseyear] / (dat_with_ple$mean.f_ple[baseyear] + dat_with_ple$mean.f[baseyear]  ) ),
                      data = dat_with_ple, start = c(qr0 = 2, creep = 0.1, wantedness = 0))
         summary(model)
-       # all terms sig, wantedness positive, as expected, creep neg. though
+        
+       # all terms sig but TC
+        # remove TC
         nls.model5 <- model
-        AIC(nls.model5, nls.model4)  # --> Fsol/(Fsol + Fple)  much better than Fple/Fsol
-        anova(nls.model4, nls.model5)
-        AIC(nls.model5, nls.model3)
-        anova(nls.model5, nls.model3)  # --> wantedness helps a lot oder simplest model
-        # DIAGNOSTICS:
-        # R² 0.265
-        cor.test(predict(model), dat_with_ple$mean.f)
         
-  # force 'creep' positive
-        model <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) * f_scaled *
+        model <- nls(mean.f ~ f_scaled *
                        qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
-                       wantedness * mean.f / (mean.f_ple + mean.f),
-                     data = dat_with_ple, start = c(qr0 = 2, creep = 0.1, wantedness = 0),
-                     lower = c(-9^999, 0, -9^999), algorithm = 'port')
+                       wantedness * (mean.f / (mean.f_ple + mean.f) -
+                                       dat_with_ple$mean.f[baseyear] / (dat_with_ple$mean.f_ple[baseyear] + dat_with_ple$mean.f[baseyear]  ) ),
+                     data = dat_with_ple, start = c(qr0 = 2, wantedness = 0))
         summary(model)
         
-  # remove insig. creep term
-        model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
-                       wantedness * mean.f / (mean.f_ple + mean.f),
-                     data = dat_with_ple, start = c(qr0 = 2, wantedness = 0),
-                     algorithm = 'port')
-        summary(model) 
-        AIC(model, nls.model5)
-        anova(model, nls.model5)
+        AIC(nls.model5, model)
+        anova(nls.model5, model)  # --> wantedness helps a lot oder simplest model
+        cor.test(predict(model), dat_with_ple$mean.f)
+
         
         
-# (4.4) Remove 'creep' from SOL vs BEL, as else it is negative, without forcing creep positive ----
-        model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
-                       wantedness * mean.f / (mean.f_ple + mean.f),
-                     data = dat_with_ple, start = c(qr0 = 2,wantedness = 0))
-        summary(model)
-        
-        
-# (4.5) Diagnostics of final model
+# (4.4) Diagnostics of final model
         # ... see plotting routine at
         #     3.5!
         res <- resid(model)
