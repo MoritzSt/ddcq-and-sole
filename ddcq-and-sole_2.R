@@ -836,48 +836,20 @@ if(prior2003 == TRUE) {
    #  intended meaning when F of both fleets simultaneously decrease through different
    #  mechanisms, such as in more recent years, when Fsol decreased through stock
    #  conservation efforts and Fple through the large increase of the stock [elaborate!].
-    x11()
-   par(mfrow=c(3,1))
-   plot(x = dat_with_ple$year, y = dat_with_ple$mean.f)
-   plot(x = dat_with_ple$year, y = dat_with_ple$mean.f_ple)
-   plot(x = dat_with_ple$year, y = dat_with_ple$mean.f_ple / dat_with_ple$mean.f)
-    dev.off()
-   #  To overcome this limitations, we scaled the 'wantedness' of sole relative
-   #  to the total 'wantedness' of both species: Fsol / (Fsol + Fple) . That
-   #  approach would sustain the preference for one species even if both Fs
-   #  decline or increase simultaneously.
-    x11()
-   plot(x = dat_with_ple$year, y = dat_with_ple$mean.f/ (dat_with_ple$mean.f + dat_with_ple$mean.f_ple) )
-   plot(x = dat_with_ple$year, y = dat_with_ple$mean.f)
-   plot(y = dat_with_ple$mean.f, x = dat_with_ple$mean.f/ (dat_with_ple$mean.f + dat_with_ple$mean.f_ple))
-    dev.off()
-    cor.test(y = dat_with_ple$mean.f, x = dat_with_ple$mean.f/ (dat_with_ple$mean.f + dat_with_ple$mean.f_ple))
-   #  Include that in the model:
+   
+   #  Also, this effect in preference of species A over B has to be set in relation 
+   #  to the ratio between both species' F in 1991, such as to prevent a y-intercept
+   #  functionality of the 'SP' ,i.e. 'wantedness' parameter. See 
+   #  D:\OfflineOrdner\Promotion III -- Technological Creep\10--Sole\ddcq and sole\plots for ms\Eq 1 plots for ms.R
+   #  and compare model and model_2 re effect of 'SP' for that.
+    baseyear <- which(dat_with_ple$year == 1991)
+   
     model <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) * f_scaled *
                    qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
-                   wantedness * mean.f / (mean.f_ple + mean.f),
+                   wantedness * (mean.f / (mean.f_ple + mean.f) -
+                   dat_with_ple$mean.f[baseyear] / (dat_with_ple$mean.f_ple[baseyear] + dat_with_ple$mean.f[baseyear]  ) ),
                  data = dat_with_ple, start = c(qr0 = 2, creep = 0.1, wantedness = 0))
     summary(model)
-    # creep not sig., remove that term
-    model <- nls(mean.f ~ f_scaled *
-                   qr0 / (1 + (qr0 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
-                   wantedness * mean.f / (mean.f_ple + mean.f),
-                 data = dat_with_ple, start = c(qr0 = 2, wantedness = 0))
-    summary(model)  # --> both terms sig., wantedness positive, as expected
-    nls.model5 <- model
-    AIC(nls.model5, nls.model4)  # --> Fsol/(Fsol + Fple)  much better than Fple/Fsol
-    anova(nls.model4, nls.model5)
-    AIC(model, nls.model3)
-    anova(model, nls.model3)  # --> sig better than without Fple consideration
-    # DIAGNOSTICS:
-    # R² 0.743
-    cor.test(predict(model), dat_with_ple$mean.f)
-    # Diagnostics and their plots (code below) show:
-    # Residuals vs predicted values could be interpreted as trend,
-    #   sig. with pearson, insig with spearman, and relationship is
-    #   not  necessarily linear (gam shows spline, however very subtle).
-    # Residuals normally distributed, but autocorrelated.
-    # Stochastic components of the model are independent (Wald-Wolfowitz' runs test insig).
     
     
 # (3.5) Diagnostic plots of final model ----
@@ -897,13 +869,13 @@ if(prior2003 == TRUE) {
         cor.test(predict(model), dataset$mean.f, method = 'pearson')$estimate ^2)))
    abline(a = 0, b = 1, lty = 2)
    plot(resid(model) ~ predict(model),
-        main = paste0('Residuals against fitted values: p < 0.01 '))#, round(digits = 2,
+        main = paste0('Residuals against fitted values: p < 0.05 '))#, round(digits = 2,
          # cor.test(resid(model), predict(model), method = 'spearman')$p.value)))
    abline(0,0, lty = 2)
    plot(resid(model) ~ dataset$mean.f, main = 'Residuals against response var',
         xlab = 'Fsol')
    abline(0,0, lty = 2)
-   plot(resid(model) ~ dataset$year, type = 'both',
+   plot(resid(model) ~ dataset$year, type = 'b',
         main = 'Time series of residuals', xlab = 'Year')
    abline(0,0, lty = 2)
    acf(resid(model), main = 'ACF of residuals')
