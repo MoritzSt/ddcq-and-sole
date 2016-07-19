@@ -829,7 +829,7 @@ if(prior2003 == TRUE) {
    
    dev.off()
    
-# (3.4) model wantedness as  Fple / (Fsol + Fple) ----
+# (3.4) model wantedness as  Fple / (Fsol + Fple) realtive base year ----
    
    #  Modelling the effect of preference of one of the two flatfish species over
    #  the other by F_sol / F_ple or vice versa bears the danger of loosing the
@@ -1054,7 +1054,7 @@ if(prior2003 == TRUE) {
   nls.model4 <- model
 
 
-# (4.3) SOL vs BEL: wantedness as Fsol/(Fsol+Fple) ----
+# (4.3) SOL vs BEL: wantedness as Fsol/(Fsol+Fple) relative base year ----
         baseyear <- which(dat_with_ple$year == 1991)
         
         model <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) * f_scaled *
@@ -1320,53 +1320,37 @@ if(prior2003 == TRUE) {
   dev.off()
   
   
-# (7.1.3) 'wantedness' as Fple / (Fple + Fsol) ----
+# (7.1.3) 'wantedness' as Fple / (Fple + Fsol) vs. baseyear ----
+  baseyear <- which(plaice$year == 1991)
   model <- nls(mean.f ~ (1 + creep * (year - min(plaice$year[!is.na(plaice$f_scaled)])))
                * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
-                 wantedness * mean.f / (mean.f + mean.f_sol),
+                 wantedness * ((mean.f / (mean.f_sol + mean.f)) -
+                   (plaice$mean.f[baseyear] / (plaice$mean.f_sol[baseyear] + plaice$mean.f[baseyear]))  ),
                data = plaice, start = c(qr0 = 2, creep = 0.1, wantedness = 0))
   summary(model)
-  # First check on residuals & predictions
-  ad.test(resid(model))
-  cvm.test(resid(model))  # --> normally distributed
-  ad.test(predict(model))
-  cvm.test(predict(model)) # --> predicted values not normally distributed --> spearman
-  model1_ple_nld <- model
+  model_1 <- model
   
-  
-# (7.1.3.X) Force 'creep' positive
-  model <- nls(mean.f ~ (1 + creep * (year - min(plaice$year[!is.na(plaice$f_scaled)])))
-               * f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
-                 wantedness * mean.f / (mean.f + mean.f_sol),
-               data = plaice, start = c(qr0 = 2, creep = 0.1, wantedness = 0.1), 
-              lower = c(-9^999,0,-9^999), algorithm = 'port')
-
-# (7.1.4) Remove 'creep' as it would be negative ----
+  # (7.1.4) creep & wantedness not signifcant ----
   model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
-                 wantedness * mean.f / (mean.f + mean.f_sol),
-               data = plaice, start = c(qr0 = 2, wantedness = 0),
-               lower = c(-9^999,-9^999), algorithm = 'port')
+                 wantedness * ((mean.f / (mean.f_sol + mean.f)) -
+                                 (plaice$mean.f[baseyear] / (plaice$mean.f_sol[baseyear] + plaice$mean.f[baseyear]))  ),
+               data = plaice, start = c(qr0 = 2, wantedness = 0))
   summary(model)
   
-  
-# (7.1.5) Only SSB significant in PLE vs NLD
   model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]),
                data = plaice, start = c(qr0 = 2))
   summary(model)
-  model2_ple_nld <- model
-  AIC(model2_ple_nld, model1_ple_nld)
-  anova(model2_ple_nld, model1_ple_nld)
-  anova(model1_ple_nld, model2_ple_nld)
-  #  --> Keeping all terms results in a significantly better model.
-  model <- model1_ple_nld
   
+  anova(model, model_1)
+  AIC(model, model_1)
+
   
   # compare with direct effort relationship only:
-  model <- nls(mean.f ~ f_scaled * a_factor,
+  model_simple <- nls(mean.f ~ f_scaled * a_factor,
                data = plaice, start = c(a_factor = 2))
   summary(model)
-  AIC(model, model2_ple_nld)
-  anova(model, model2_ple_nld)
+  AIC(model, model_simple)
+  anova(model, model_simple)
   
   
 # (7.2) PLE vs BEL: nls Mechanistic model  ------------------------------------
