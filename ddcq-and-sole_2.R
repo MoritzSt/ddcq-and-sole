@@ -16,8 +16,9 @@
 
   # Do you want to include effort data of dutch beam trawl prior 2003 from WGSAM05?
   prior2003 <- TRUE
-  # working_directory <- 'D:\\workfolder\\TI-2016\\ddcq\\ddcq-and-sole-master\\ddcq-and-sole-master'
-   working_directory <- 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole'
+  # working_directory <- 'D:\\workfolder\\TI-2016\\ddcq\\ddcq-and-sole-master\\ddcq-and-sole-master'  # at priv PC
+  # working_directory <- 'D:\\OfflineOrdner\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole'  # at TI PC
+   working_directory <- 'Z:\\02-TI\\Promotion III -- Technological Creep\\10--Sole\\ddcq and sole'  # at ZMT PC
 
    library(reshape2)
    library(sNoSeR)
