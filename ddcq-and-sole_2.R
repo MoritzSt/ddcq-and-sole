@@ -26,6 +26,14 @@
    library(dplyr)
    library(magrittr)
    library(nortest)
+   library(mgcv)
+   library(nlme)
+   library(lmtest)
+   library(TSA)
+   library(car)
+   
+   
+   
    
 # (1) Is FPUE of sole constant or does it change with time and/or abundance?----
 
@@ -406,7 +414,6 @@ if(prior2003 == TRUE) {
   dat$year <- as.numeric(as.character(dat$year))  # This might be a critical point.
   x11()
   pairs(dat)
-  library(mgcv)
   qplot(data = dat, fpue) + geom_histogram()  # check distribution of response var
   dev.off()
     # --> looks like gaussian is OK.
@@ -613,7 +620,6 @@ if(prior2003 == TRUE) {
     
     
     # correct glm for autocorrelation ----
-    library(nlme)
       # without correction for autocor, just rebuilding GLM
     Mglsbase<-gls(model=fpue~log(ssb)+year, data=dat[dat$year>1977,], method="REML")
     plot(dat$year[dat$year>1977], resid(Mglsbase, type="normalized"))
@@ -703,7 +709,6 @@ if(prior2003 == TRUE) {
     summary(nls.model1)
     # Omid:
     # check normality:
-    library(nortest)
     ad.test(resid(nls.model1))
     cvm.test(resid(nls.model1))
     # --> You could use this model type, but delete insig. term: creep.
@@ -745,9 +750,7 @@ if(prior2003 == TRUE) {
   # -> Highly significant, so there might be autocorrealtion in residuals.
   
   # Also try Durbin-Watson test, implemented in the lmtest and the car package:
-  library(lmtest)
   dwtest(nls.model3)
-  library(car)
   durbinWatsonTest(nls.model3)
   # ...both don't work, DW-test only works for linear models.
   testmodel <- lm(data = dat, fpue ~ ssb + year)
@@ -910,7 +913,6 @@ if(prior2003 == TRUE) {
     
    # perform runs test upon the independence of a sequence of random variables
       # runs test is also called Wald-Wolfowitz-Test
-   library(TSA)
    runs(resid(model))
    
    
@@ -1375,49 +1377,25 @@ if(prior2003 == TRUE) {
   # [!!! TO DO ]
   
   
-# (7.2.2) Add 'wantedness' or 'preference' as Fple / (Fple + Fsol) ----
+# (7.2.2) Add 'wantedness' or 'preference' as Fple / (Fple + Fsol) relative baseyear----
+  baseyear <- which(plaice$year == 1991)
+  
   model <- nls(mean.f ~ (1 + creep * (year - min(plaice$year[!is.na(plaice$f_scaled)]))) * f_scaled *
                  qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
-                 wantedness * mean.f / (mean.f + mean.f_sol),
+                 wantedness * (mean.f / (mean.f + mean.f_sol) - 
+                 plaice$mean.f[baseyear] / (plaice$mean.f[baseyear] + plaice$mean.f_sol[baseyear])),
                data = plaice, start = c(qr0 = 2, creep = 0.1, wantedness = 0))
   model1_ple_bel <- model
   summary(model)  # --> creep is negative -> force positive
   
-# (7.2.3) Force 'creep' positive
+  ### remove non-significant species effect
   model <- nls(mean.f ~ (1 + creep * (year - min(plaice$year[!is.na(plaice$f_scaled)]))) * f_scaled *
-                 qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
-                 wantedness * mean.f / (mean.f + mean.f_sol),
-               data = plaice, start = c(qr0 = 2, creep = 0.1, wantedness = 0.1),
-               lower = c(-9^999, 0, -9^999), algorithm = 'port')
-  summary(model)  
+                 qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]),
+               data = plaice, start = c(qr0 = 2, creep = 0.1))
+  summary(model)
   AIC(model, model1_ple_bel)
   anova(model, model1_ple_bel)
-  
-  # --> 'creep' insignificant. Remove that term
-  model <- nls(mean.f ~ f_scaled * qr0 / (1 + (qr0 - 1) * ssb / plaice$ssb[dat$year == 1991]) +
-                 wantedness * mean.f / (mean.f + mean.f_sol),
-               data = plaice, start = c(qr0 = 2, wantedness = 0.1),
-               algorithm = 'port')
-  summary(model)
   model2_ple_bel <- model
-  AIC(model, model1_ple_bel)
-  anova(model, model1_ple_bel)
-  
-  
-  # compare with direct effort relationship only:
-  model <- nls(mean.f ~ f_scaled * a_factor + wantedness * mean.f / (mean.f + mean.f_sol),
-               data = plaice, start = c(a_factor = 1, wantedness = 0.1), algorithm = 'port')
-  summary(model)
-  AIC(model, model2_ple_bel)
-  anova(model, model2_ple_bel)
-  ## --> Model looks totally different from final model. Residuals of this model not OK.
-  
-  
-  # First check on residuals & predictions
-  ad.test(resid(model))
-  cvm.test(resid(model))  # --> normally distributed
-  ad.test(predict(model))
-  cvm.test(predict(model)) # --> predicted values not normally distributed --> spearman
 
   
 # (7.3) Plaice diagnostic plots of final model ----
@@ -1437,7 +1415,7 @@ if(prior2003 == TRUE) {
                                                                 cor.test(predict(model), dataset$mean.f, method = 'pearson')$estimate ^2)))
   abline(a = 0, b = 1, lty = 2)
   plot(resid(model) ~ predict(model),
-       main = paste0('Residuals against fitted values: p = ', round(digits = 2,
+       main = paste0('Residuals against fitted values: p = ', round(digits = 3,
         cor.test(resid(model), predict(model), method = 'spearman')$p.value)))
   abline(0,0, lty = 2)
   plot(resid(model) ~ dataset$mean.f, main = 'Residuals against response var',
