@@ -857,7 +857,17 @@ if(prior2003 == TRUE) {
     rm(baseyear)
     
     
-# (3.5) Diagnostic plots of final model ----
+# (3.5) Compare model to effort effect only ----
+    
+    model_f_only <- nls(mean.f ~ a_factor * f_scaled + intercept,
+                        data = dat_with_ple, start = c(a_factor = 1, intercept = 0))
+    summary(model_f_only)
+    anova(model, model_f_only)
+    AIC(model_f_only, model)
+    # --> ...but residuals of model_f_only have clear patterns
+    
+    
+# (3.6) Diagnostic plots of final model ----
    dataset <- dat_with_ple  # select dataset of the current analysis here, e.g. 'plaice' or 'dat_with_ple'
     x11()
     qthing <- qqnorm(resid(model))  # just to create qqnorm data
@@ -1083,8 +1093,24 @@ if(prior2003 == TRUE) {
         cor.test(predict(model), dat_with_ple$mean.f)
 
         
+# (4.4) Compare model to effort effect only ----
         
-# (4.4) Diagnostics of final model
+        model_f_only <- nls(mean.f ~ a_factor * f_scaled + intercept,
+                            data = dat_with_ple, start = c(a_factor = 1, intercept = 0))
+        summary(model_f_only)
+        anova(model, model_f_only)
+        AIC(model_f_only, model)
+        # --> Lower AIC, but residuals of model_f_only have clear patterns:
+        x11()
+        plot(resid(model_f_only))
+        runs(resid(model_f_only))
+        ad.test(resid(model_f_only))
+        cvm.test(resid(model))
+        acf(resid(model_f_only))
+        dev.off()
+        
+        
+# (4.5) Diagnostics of final model
         # ... see plotting routine at
         #     3.5!
         res <- resid(model)
@@ -1396,6 +1422,24 @@ if(prior2003 == TRUE) {
   AIC(model, model1_ple_bel)
   anova(model, model1_ple_bel)
   model2_ple_bel <- model
+  
+  
+# (7.2.3) Compare model to effort effect only ----
+  
+  model_f_only <- nls(mean.f ~ a_factor * f_scaled + intercept,
+                      data = plaice, start = c(a_factor = 1, intercept = 0))
+  summary(model_f_only)
+  anova(model, model_f_only)
+  AIC(model_f_only, model)
+  # --> Lower AIC, but residuals of model_f_only have clear patterns:
+  x11()
+  par(mfrow = c(1,2))
+  plot(resid(model_f_only))
+  runs(resid(model_f_only))
+  ad.test(resid(model_f_only))
+  cvm.test(resid(model))
+  acf(resid(model_f_only))
+  dev.off()
 
   
 # (7.3) Plaice diagnostic plots of final model ----
