@@ -857,7 +857,18 @@ if(prior2003 == TRUE) {
     rm(baseyear)
     
     
-# (3.5) Compare model to effort effect only ----
+# (3.5) Compare model to QR0 = 1 model and to effort effect only ----
+    baseyear <- which(dat_with_ple$year == 1991)
+    model_QR0_1 <- nls(mean.f ~ (1 + creep * (year - min(dat_with_ple$year[!is.na(dat_with_ple$f_scaled)]))) * f_scaled *
+                         1.00 / (1 + (1.00 - 1) * ssb / dat_with_ple$ssb[dat$year == 1991]) +
+                         wantedness * (mean.f / (mean.f_ple + mean.f) -
+                                         dat_with_ple$mean.f[baseyear] / (dat_with_ple$mean.f_ple[baseyear] + dat_with_ple$mean.f[baseyear]  ) ),
+                       data = dat_with_ple, start = c(creep = 0.1, wantedness = 0))
+    anova(model_QR0_1, model)
+    AIC(model_QR0_1, model)
+    rm(baseyear, model_QR0_1)
+    
+    
     
     model_f_only <- nls(mean.f ~ a_factor * f_scaled + intercept,
                         data = dat_with_ple, start = c(a_factor = 1, intercept = 0))
@@ -1429,7 +1440,8 @@ if(prior2003 == TRUE) {
   model_f_only <- nls(mean.f ~ a_factor * f_scaled + intercept,
                       data = plaice, start = c(a_factor = 1, intercept = 0))
   summary(model_f_only)
-  anova(model, model_f_only)
+  anova(model_f_only, model)
+  summary(tt)
   AIC(model_f_only, model)
   # --> Lower AIC, but residuals of model_f_only have clear patterns:
   x11()
